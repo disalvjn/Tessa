@@ -15,22 +15,27 @@ module Language =
         | Operated of origin: Point * operation: Operation
         | OnSegment of PointOnSegment
         | Intersection of Line * Line
-        static member ToSegment p1 = Singlet(p1)
+        static member ToSegmentable p1 = SinglePoint(p1)
         static member Expression p1 = PointExp(p1)
 
     and PointOnSegment =
         | PointOnSegment of position: double * segment: Segment
 
     and Segment = 
-        | Singlet of Point
-        | Perpendicular of  position: double * originSegment: Segment * endSegment: Segment
+        | Link of Point * Point
+        | Chain of Segment * Point
         | Concat of Segment * Segment
-        | QuadraticBezier of ``from``: Point * ``to``: Point * control: Point
+        | Perpendicular of  position: double * originSegment: Segment * endSegment: Segment
+        | QuadraticBezier of orig: Point * control: Point * dest: Point
         | Snipped of original: Segment * cutAt: Segment
         // | FocalSplit of farSegment: Segment * nearSegment: Segment * focal: Point * numberPolygons: int
-        static member ToSegment s = s
+        static member ToSegmentable s = AlreadySegment(s)
         static member Expression s = SegmentExp(s)
         static member ToLine s = ExtendSegment(s)
+
+    and CanMakeSegment = 
+        | AlreadySegment of Segment
+        | SinglePoint of Point
 
     // Lines are inifinite and Segments are finite
     and Line =
@@ -62,7 +67,15 @@ module Language =
     let down location segment = Down <| PointOnSegment(location, segment)
 
     let inline asSegment (p:^t) = (^t: (static member ToSegment: ^t -> Segment) (p))
-    let inline (+) p q = Concat(asSegment p, asSegment q)
+    let inline asSegmentable (p:^t) = (^t: (static member ToSegmentable: ^t -> CanMakeSegment) (p))
+    // let inline (+) p q = Concat(asSegment p, asSegment q)
+    let inline (+) p q =
+        let ps, qs = asSegmentable p, asSegmentable q
+        match ps, qs with 
+            | (SinglePoint x, SinglePoint y) -> Link(x, y)
+            | (SinglePoint x, AlreadySegment y) -> Chain(y, x)
+            | (AlreadySegment x, SinglePoint y) -> Chain(x, y)
+            | (AlreadySegment x, AlreadySegment y) -> Concat(x, y)
 
     let inline asLine (x:^t) = (^t: (static member ToLine: ^t -> Line) (x))
     let inline (*) x y = Intersection(asLine x, asLine y)
@@ -176,8 +189,8 @@ module Examples =
 
         let control = c + b -|> (0.5, a + b) @ 0.3
 
-        let topBorder = a + i1 + i2 + i3 + (a + b @ 0.625) + (i3 % r1) + (i2 % r1) + (i1 % r1) + c + QuadraticBezier(b, a, control % r1)
-        let lowerBorder = QuadraticBezier(c, b, control)
+        let topBorder = a + i1 + i2 + i3 + (a + b @ 0.625) + (i3 % r1) + (i2 % r1) + (i1 % r1) + c + QuadraticBezier(b, control % r1, a)
+        let lowerBorder = QuadraticBezier(c, control, b)
 
         let focal = (a + c |> Y 1.3) * (c + b |> X 0.5)
 

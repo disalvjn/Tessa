@@ -3,6 +3,9 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="src/*" />
+    <Compile Include="src/Language.fs" />
+    <Compile Include="src/Program.fs" />
+    <Compile Include="src/Solve.fs" />
+    <Compile Include="src/Startup.fs" />
   </ItemGroup>
 </Project>
