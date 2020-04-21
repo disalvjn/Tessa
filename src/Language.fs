@@ -11,7 +11,7 @@ module Language =
         | C6 
 
     type Point = 
-        | Absolute of x: int * y: int
+        | Absolute of x: double * y: double
         | Operated of origin: Point * operation: Operation
         | OnSegment of PointOnSegment
         | Intersection of Line * Line
