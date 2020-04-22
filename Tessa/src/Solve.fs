@@ -60,18 +60,21 @@ module Solve =
             | Straight (orig, dest) -> straightLength orig dest
             | QuadraticBezier (orig, control, dest) -> quadraticBezierLength orig control dest
 
+    let segmentChainCumulativeLengths segmentChain = 
+        let rec go list cumulative m = 
+            match list with 
+                | [] -> m
+                | head::tail -> 
+                    let lengthHere = length head
+                    let newCumulative = lengthHere + cumulative
+                    go tail newCumulative <| Map.add head (cumulative, newCumulative) m
+        go segmentChain 0.0 Map.empty
+
     let segmentAt segmentChain location =
+        let cumulatives = segmentChainCumulativeLengths segmentChain
         let totalLength = List.sumBy length segmentChain
         let hitAt = location * totalLength
-        let runningTotals = 
-            segmentChain
-            |> List.fold (fun (lengthSoFar, resultList) segment -> (length segment + lengthSoFar, (segment, length segment + lengthSoFar)::resultList)) (0.0, [])
-            |> snd
-            |> List.rev 
-        let choice = runningTotals |> List.skipWhile (fun (segment, runningTotal) -> runningTotal < hitAt) 
-        match choice with
-            | head :: _ -> head
-            | _ -> failwith "Need to extend segment into line and walk out. fails if this is a curve."
+        segmentChain |> List.skipWhile (fun s -> Map.find s cumulatives |> snd |> (>) hitAt) |> List.tryHead
 
     let slope orig dest = 
         match dest.x - orig.x with
@@ -92,7 +95,26 @@ module Solve =
             | None -> {x = orig.x; y = orig.y + dy*location}
             | Some y -> {x = newX; y = y}
 
-    let pointOnSegmentChain (schain: SegmentChain) (location: Location) : Segment * Point = failwith ""
+    let pointOnSegmentChain (segmentChain: SegmentChain) (location: Location) : Segment * Point = 
+        let cumulatives = segmentChainCumulativeLengths segmentChain
+        let total = List.sumBy length segmentChain
+        let hitAt = location * total
+        match segmentAt segmentChain location with
+            | None -> 
+                match List.tryLast segmentChain with
+                | None -> failwith "Can't take a point on an empty segment chain"
+                | Some(Straight(orig, dest) as segment) ->
+                    // todo: this is duplicated from below
+                    let (start, finish) = Map.find segment cumulatives
+                    let locationOnThisSegment = (hitAt - start) / (finish - start)
+                    (segment, pointOnStraightSegment orig dest locationOnThisSegment)
+                | Some(QuadraticBezier(_)) -> failwith "No way to extend quadratic bezier"
+                
+            | Some(Straight(orig, dest) as segment) -> 
+                let (start, finish) = Map.find segment cumulatives
+                let locationOnThisSegment = (hitAt - start) / (finish - start)
+                (segment, pointOnStraightSegment orig dest locationOnThisSegment)
+            | Some(QuadraticBezier(_)) -> failwith "oof"
 
     let solveLinePerpendicular (location: Location) (segment: Segment) =
         match segment with
