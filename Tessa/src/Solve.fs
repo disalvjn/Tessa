@@ -1,20 +1,29 @@
-namespace Tessellations.Solve
+namespace Tessa.Solve
 
 open System
 open FSharp.Collections
-open Tessellations.Language 
+open Tessa.Language 
 open System.Collections.Generic
 
 module Solve =
     module L = Language
 
     type Point = {x: double; y: double;}
+    // https://stackoverflow.com/a/26565842/10558918
+    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+    module Point = 
+        let x: Point -> double = fun p -> p.x
+        let y: Point -> double = fun p -> p.y
 
     type Segment = 
         | Straight of Point * Point
         | QuadraticBezier of orig: Point * control: Point * dest: Point
 
     type SegmentChain = Segment list
+
+    type Line = 
+        | Vertical of x: double
+        | Sloped of xy: Point * m: double
 
     type Location = double
 
@@ -24,9 +33,6 @@ module Solve =
 
     type Polygon = 
         | Polygon of PolygonId * Point * Segment * PolygonDirectionality
-
-    //
-    //
 
     // https://gist.github.com/tunght13488/6744e77c242cc7a94859
     let quadraticBezierLength (orig: Point) (control: Point) (dest: Point) =
@@ -55,7 +61,7 @@ module Solve =
             | QuadraticBezier (orig, control, dest) -> quadraticBezierLength orig control dest
 
     let segmentAt segmentChain location =
-        let totalLength = segmentChain |> List.map length |> List.sum 
+        let totalLength = List.sumBy length segmentChain
         let hitAt = location * totalLength
         let runningTotals = 
             segmentChain
@@ -66,29 +72,72 @@ module Solve =
         match choice with
             | head :: _ -> head
             | _ -> failwith "Need to extend segment into line and walk out. fails if this is a curve."
-        
+
+    let slope orig dest = 
+        match dest.x - orig.x with
+            | 0.0 -> None
+            | _ -> Some <| (dest.y - orig.y) / (dest.x - orig.x)
+
+    let pointSlope orig dest = 
+        slope orig dest |> Option.map (fun m x -> m * (x - dest.x) + dest.y)
+
+    let evaluate orig dest x =
+        pointSlope orig dest |> Option.map (fun f -> f x)
+
+    let pointOnStraightSegment orig dest location = 
+        let dx = dest.x - orig.x
+        let dy = dest.y - orig.y
+        let newX = orig.x + dx*location
+        match evaluate orig dest newX with
+            | None -> {x = orig.x; y = orig.y + dy*location}
+            | Some y -> {x = newX; y = y}
+
+    let pointOnSegmentChain (schain: SegmentChain) (location: Location) : Segment * Point = failwith ""
+
+    let solveLinePerpendicular (location: Location) (segment: Segment) =
+        match segment with
+            | QuadraticBezier(_, _, _) -> failwith "oof"
+            | Straight(orig, dest) -> 
+                match slope orig dest with
+                    // Vertical lines become horizontal lines with slope=0
+                    | None -> Sloped(pointOnStraightSegment orig dest location, 0.0)
+                    // Horizontal lines become vertical lines
+                    | Some 0.0 -> pointOnStraightSegment orig dest location |> Point.x |> Vertical
+                    // All other lines have m -> -1/m
+                    | Some m -> Sloped(pointOnStraightSegment orig dest location, -1.0 / m)
+
+    let solveLineExtendSegment segment = 
+        match segment with 
+            | QuadraticBezier(_,_,_) -> failwith "oof"
+            | Straight(orig, dest) -> 
+                match slope orig dest with
+                    | None -> Vertical orig.x
+                    | Some m -> Sloped (orig, m)
+
+    let solveLineVerticalThroughX location segment =
+        match segment with 
+            | QuadraticBezier(_,_,_) -> failwith "oof"
+            | Straight(orig, dest) -> pointOnStraightSegment orig dest location |> Point.x |> Vertical
+
+    let solveLineHorizontalThroughY location segment =
+        match segment with
+            | QuadraticBezier(_,_,_) -> failwith "oof"
+            | Straight(orig, dest) -> Sloped(pointOnStraightSegment orig dest location, 0.0)
 
 
 
-    let pointOnSegment (schain: SegmentChain) (location: Location) : Segment * Point = failwith ""
+
+
 
     let mergeSegmentChains chain1 chain2 = failwith ""
 
-    // let pointSlope orig dest = 
-    //     let slope = (dest.y - orig.y) / (dest.x - orig.x)
-    //     fun x -> slope * (x - dest.x) + dest.y
 
-    // let evaluate orig dest x =
-    //     match dest.x - orig.x with
-    //         | 0.0 -> None
-    //         | _ -> Some <| pointSlope orig dest x
+module TestIt =
+    open Solve
+    let chain = [Straight ({x = 0.0; y= 0.0;}, {x = 2.0; y = 0.0;}); Straight ({x = 2.0; y = 0.0;}, {x = 3.0; y = 1.0;})]
 
-    // let pointOnSegment orig dest location = 
-    //     let dx = dest.x - orig.x
-    //     let newX = orig.x + dx*location
-    //     match evaluate orig dest newX with
-    //         | None -> {x = orig.x; y = orig.y + (dest.y - orig.y)}
-    //         | Some y -> {x = newX; y = y}
+
+    let computed = segmentAt chain 0.8
 
 
     // let test1 =  pointOnSegment (point 0.0 0.0) (point 1.0 2.0) 0.5 

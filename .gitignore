@@ -1,0 +1,7 @@
+.fake
+.ionide
+**/Properties/*
+**/appsettings*
+**/bin/*
+**/obj/*
+**/*.fsx

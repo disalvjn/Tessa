@@ -4,8 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="src/Language.fs" />
-    <Compile Include="src/Program.fs" />
     <Compile Include="src/Solve.fs" />
-    <Compile Include="src/Startup.fs" />
+    <Compile Include="src/Program.fs" />
   </ItemGroup>
 </Project>

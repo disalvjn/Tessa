@@ -1,16 +1,17 @@
-namespace Tessellations
+namespace Tessa
 
 open System
 open System.Collections.Generic
+open System.IO
 open System.Linq
 open System.Threading.Tasks
-open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore
 open Microsoft.AspNetCore.Hosting
-open Microsoft.AspNetCore.HttpsPolicy;
-open Microsoft.AspNetCore.Mvc
 open Microsoft.Extensions.Configuration
-open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
+open Microsoft.Extensions.Logging
+open Microsoft.Extensions.DependencyInjection
+open Microsoft.AspNetCore.Builder
 
 type Startup private () =
     new (configuration: IConfiguration) as this =
@@ -37,3 +38,17 @@ type Startup private () =
             ) |> ignore
 
     member val Configuration : IConfiguration = null with get, set
+
+module Program =
+    let exitCode = 0
+
+    let CreateHostBuilder args =
+        Host.CreateDefaultBuilder(args)
+            .ConfigureWebHostDefaults(fun webBuilder ->
+                webBuilder.UseStartup<Startup>() |> ignore
+            )
+
+    [<EntryPoint>]
+    let main args =
+        CreateHostBuilder(args).Build().Run()
+        exitCode

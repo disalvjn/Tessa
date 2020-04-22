@@ -1,4 +1,4 @@
-namespace Tessellations.Language
+namespace Tessa.Language
 
 open Microsoft.FSharp.Collections
 open System
@@ -40,8 +40,8 @@ module Language =
     // Lines are inifinite and Segments are finite
     and Line =
         | Perpendicular of position: double * segment: Segment
-        | AtX of xPosition: double * segment: Segment
-        | AtY of yPosition: double * segment: Segment
+        | VerticalThroughX of xPosition: double * segment: Segment
+        | HorizontalThroughY of yPosition: double * segment: Segment
         | ExtendSegment of Segment
         static member ToLine l = l
 
@@ -85,8 +85,8 @@ module Language =
     let (-|) segment position = Line.Perpendicular(position, segment)
     let (-|>) segment (position, endSegment) = Segment.Perpendicular(position, segment, endSegment)
 
-    let X position segment = AtX(position, segment)
-    let Y position segment = AtY(position, segment)
+    let X position segment = VerticalThroughX(position, segment)
+    let Y position segment = HorizontalThroughY(position, segment)
 
     let (|-|) orig cutAt = Snipped(orig, cutAt)
 
