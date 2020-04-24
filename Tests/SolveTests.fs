@@ -20,6 +20,12 @@ module SolveTests =
 
     let p x y = {S.x = x; S.y = y;}
 
+    let toSegments points  =
+        Seq.zip points (List.tail points)
+        |> Seq.fold (fun segList (p1, p2) -> S.Straight(p1, p2) :: segList) []
+        |> Seq.toList
+        |> List.rev
+
     [<Fact>]
     let ``solveLineVerticalThroughX on Straight Segment`` () =
         let segment = S.Straight({x= 0.0; y = 0.0;}, {x = 1.0; y = 1.0;})
@@ -137,12 +143,6 @@ module SolveTests =
 
     [<Fact>]
     let ``Solve Segment Snipped`` () =
-        let toSegments points  =
-            Seq.zip points (List.tail points)
-            |> Seq.fold (fun segList (p1, p2) -> S.Straight(p1, p2) :: segList) []
-            |> Seq.toList
-            |> List.rev
-
         let chain1 = toSegments [p -3.0 4.0; p -1.0 2.0; p -3.0 1.0; p -2.0 0.0; p -1.0 1.0; p 1.0 -1.0; p 1.0 -3.0]
         let chain2 = toSegments [p 3.0 3.0; p 1.0 2.0; p 1.0 1.0; p -1.0 -1.0; p -1.0 -2.0]
 
@@ -157,6 +157,20 @@ module SolveTests =
         let snippedChain2 = S.solveSegmentSnipped chain2 chain1
         Assert.Equal(3, List.length snippedChain2)
         AssertSegmentEqual (List.last snippedChain2) <| S.Straight(p 1.0 1.0, p 0.0 0.0)
+
+    [<Fact>]
+    let ``Solve Segment Perpendicular`` () =
+        let beginFrom = toSegments [p -1.0 1.0 ; p 1.0 1.0]
+        let snipTo1 = toSegments [p -1.0 5.0; p 1.0 5.0; p -1.0 6.0]
+        let snipTo2 = toSegments [p -1.0 0.0; p 1.0 0.0; p -1.0 -1.0]
+
+        let perpTo1 = S.solveSegmentPerpendicular 0.5 beginFrom snipTo1
+        let perpTo2 = S.solveSegmentPerpendicular 0.5 beginFrom snipTo2
+
+        AssertSegmentEqual perpTo1 <| S.Straight(p 0.0 1.0, p 0.0 5.0)
+        AssertSegmentEqual perpTo2 <| S.Straight(p 0.0 1.0, p 0.0 0.0)
+
+
         
 
 

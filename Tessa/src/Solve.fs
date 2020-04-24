@@ -35,6 +35,9 @@ module Solve =
     type Polygon = 
         | Polygon of PolygonId * Point * Segment * PolygonDirectionality
 
+    let distance p q =
+        sqrt <| (p.x - q.x)**2.0 + (p.y - q.y)** 2.0
+
     let length segment = 
         // https://gist.github.com/tunght13488/6744e77c242cc7a94859
         let quadraticBezierLength (orig: Point) (control: Point) (dest: Point) =
@@ -201,6 +204,22 @@ module Solve =
                     | _ -> segment :: (search rest)
 
         search original
+
+    let rec okays list = 
+        match list with
+        | [] -> []
+        | Ok o :: rest -> o :: okays rest
+        | Error _ :: rest -> okays rest
+
+    let solveSegmentPerpendicular position (origSegment: SegmentChain) (endSegment: SegmentChain) =
+        let (segment, startPoint) = pointOnSegmentChain origSegment position
+        let perpLine = solveLinePerpendicular position segment
+        let intersectionPoint = 
+            endSegment 
+            |> List.map (solveLineExtendSegment >> (solvePointLineIntersect perpLine))
+            |> okays
+            |> List.minBy (distance startPoint)
+        Straight(startPoint, intersectionPoint)
 
     // type SolveContext = {
     //    PointContext: Dictionary<L.Point, Point>; 
