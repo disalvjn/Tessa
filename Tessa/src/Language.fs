@@ -119,25 +119,25 @@ module PrimitiveCells =
     type Builder<'a> = 'a -> Segment list * Polygon list * Expression list
 
     let splitFocal2 (focal: Point) (farBorder: Segment) (nearBorder: Segment) =
-        let segmentAt at = focal + (farBorder @ at) |-| nearBorder 
+        let segmentAt at = (farBorder @ at) + focal |-| nearBorder 
         // let downFrom at = segmentAt at |> down 0.5
         // let upFrom at = segmentAt at |> up 0.5
         (segmentAt 0.33, segmentAt 0.66)
 
     let splitFocal3 (focal: Point) (farBorder: Segment) (nearBorder: Segment) =
-        let segmentAt at = focal + (farBorder @ at) |-| nearBorder 
+        let segmentAt at = (farBorder @ at) + focal |-| nearBorder 
         // let downFrom at = segmentAt at |> down 0.5
         // let upFrom at = segmentAt at |> up 0.5
         (segmentAt 0.25, segmentAt 0.5, segmentAt 0.75)
 
     let splitFocal4 (focal: Point) (farBorder: Segment) (nearBorder: Segment) =
-        let segmentAt at = focal + (farBorder @ at) |-| nearBorder 
+        let segmentAt at = (farBorder @ at) + focal |-| nearBorder 
         // let downFrom at = segmentAt at |> down 0.5
         // let upFrom at = segmentAt at |> up 0.5
         (segmentAt 0.2, segmentAt 0.4, segmentAt 0.6, segmentAt 0.8)
 
     let splitFocal5 (focal: Point) (farBorder: Segment) (nearBorder: Segment) =
-        let segmentAt at = focal + (farBorder @ at) |-| nearBorder 
+        let segmentAt at = (farBorder @ at) + focal |-| nearBorder 
         // let downFrom at = segmentAt at |> down 0.5
         // let upFrom at = segmentAt at |> up 0.5
         (segmentAt 0.166, segmentAt 0.33, segmentAt 0.499, segmentAt 0.66, segmentAt 0.813)

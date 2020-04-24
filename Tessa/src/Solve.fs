@@ -19,6 +19,10 @@ module Solve =
         let x: Point -> double = fun p -> p.x
         let y: Point -> double = fun p -> p.y
 
+    let equalEnough p q = 
+        let eps = 0.001
+        (abs (p.x - q.x)) < eps && (abs (p.y - q.y)) < eps
+
     type Segment = 
         | Straight of Point * Point
 
@@ -98,6 +102,7 @@ module Solve =
         let getOnSegment segment orig dest = 
             let (start, finish) = Map.find segment cumulatives
             let locationOnThisSegment = (hitAt - start) / (finish - start)
+            printfn "%f" locationOnThisSegment
             (segment, pointOnStraightSegment orig dest locationOnThisSegment)
 
         let choiceSegment = segmentChain |> List.skipWhile (fun s -> Map.find s cumulatives |> snd |> (>) hitAt) |> List.tryHead
@@ -109,33 +114,36 @@ module Solve =
                 | Some(Straight(orig, dest) as segment) -> getOnSegment segment orig dest
             | Some(Straight(orig, dest) as segment) -> getOnSegment segment orig dest
 
-    let mergeSegmentChains chain1 chain2 = failwith ""
-
-    let solveLinePerpendicular (location: Location) (segment: Segment) =
+    let solveLinePerpendicular (location: Location) (segmentChain: SegmentChain) =
+        let (segment, point) = pointOnSegmentChain segmentChain location
         match segment with
             | Straight(orig, dest) -> 
                 match slope orig dest with
                     // Vertical lines become horizontal lines with slope=0
-                    | None -> Sloped(pointOnStraightSegment orig dest location, 0.0)
+                    | None -> Sloped(point, 0.0)
                     // Horizontal lines become vertical lines
-                    | Some 0.0 -> pointOnStraightSegment orig dest location |> Point.x |> Vertical
+                    | Some 0.0 -> point |> Point.x |> Vertical
                     // All other lines have m -> -1/m
-                    | Some m -> Sloped(pointOnStraightSegment orig dest location, -1.0 / m)
+                    | Some m -> Sloped(point, -1.0 / m)
 
-    let solveLineExtendSegment segment = 
-        match segment with 
+    let solveLineExtendSegment segmentChain = 
+        match List.length segmentChain with
+        | 0 -> Error "No segments in chain; unable to extend to line"
+        | 1 ->
+            match List.head segmentChain with 
             | Straight(orig, dest) -> 
                 match slope orig dest with
-                    | None -> Vertical orig.x
-                    | Some m -> Sloped (orig, m)
+                | None -> Ok <| Vertical orig.x
+                | Some m -> Ok <| Sloped (orig, m)
+        | _ -> Error "more than 1 segment in chain; unable to extend to line"
 
-    let solveLineVerticalThroughX location segment =
-        match segment with 
-            | Straight(orig, dest) -> pointOnStraightSegment orig dest location |> Point.x |> Vertical
+    let solveLineVerticalThroughX location segmentChain =
+        let (_, point) = pointOnSegmentChain segmentChain location
+        point |> Point.x |> Vertical
 
-    let solveLineHorizontalThroughY location segment =
-        match segment with
-            | Straight(orig, dest) -> Sloped(pointOnStraightSegment orig dest location, 0.0)
+    let solveLineHorizontalThroughY location segmentChain =
+        let (segment, point) = pointOnSegmentChain segmentChain location
+        Sloped(point, 0.0)
 
     let rotateAround point around direction degree = 
         let degreeAsInt = 
@@ -181,8 +189,8 @@ module Solve =
             | Straight(orig, dest) -> pointBoundedBy point orig dest
 
         let segmentsIntersect s1 s2 = 
-            let l1 = solveLineExtendSegment s1
-            let l2 = solveLineExtendSegment s2
+            let l1 = solveLineExtendSegment [s1] |> okay
+            let l2 = solveLineExtendSegment [s2] |> okay
             match solvePointLineIntersect l1 l2 with
             | Error _ -> None
             | Ok p -> if (pointWithinSegmentBounds p s1) && (pointWithinSegmentBounds p s2) then Some p else None
@@ -203,45 +211,70 @@ module Solve =
         search original
 
     let solveSegmentPerpendicular position (origSegment: SegmentChain) (endSegment: SegmentChain) =
-        let (segment, startPoint) = pointOnSegmentChain origSegment position
-        let perpLine = solveLinePerpendicular position segment
+        let (_, startPoint) = pointOnSegmentChain origSegment position
+        let perpLine = solveLinePerpendicular position origSegment
         let intersectionPoint = 
             endSegment 
-            |> List.map (solveLineExtendSegment >> (solvePointLineIntersect perpLine))
+            |> List.map ((fun x -> [x]) >> solveLineExtendSegment >> okay >> (solvePointLineIntersect perpLine))
             |> okays
             |> List.minBy (distance startPoint)
         Straight(startPoint, intersectionPoint)
 
+    let origDest = function
+        | Straight(orig, dest) -> (orig, dest)
+
+    let mergeSegmentChains chain1 chain2 =
+        let (last1, first2) = (List.last chain1, List.head chain2)
+        // This is for when we add arcs
+
+        let (_, last1dest) = origDest last1
+        let (first2orig, first2dest) = origDest first2
+
+        if equalEnough last1dest first2orig
+        // Rebuild first point with last1dest to account for any minute differences
+        then Ok <| chain1 @ (Straight(last1dest, first2dest) :: List.tail chain2)
+        else Error "The last point of chain1 is not close enough to the first point of chain2"
+
+    let extendSegmentToPoint chain point =
+        let (_, lastPointInChain) = origDest <| List.last chain
+        chain @ [Straight(lastPointInChain, point)]
+
     type SolveContext = {PointContext: Map<L.Point, Point>; SegmentContext: Map<L.Segment, SegmentChain>; LineContext: Map<L.Line, Line>}
 
-    let rec solvePoint solveSegment solveLine tryFindPoint returnPoint lpoint =
-        let go = solvePoint solveSegment solveLine tryFindPoint returnPoint
-        match tryFindPoint lpoint with
-            | Some p -> p
-            | None -> returnPoint lpoint <| match lpoint with
-                | L.Absolute(x, y) as absolute -> {x = x; y = y}
-                | L.Operated(origin, op) -> match op with
-                    | L.Rotate(direction, angle, center) -> rotateAround (go origin) (go center) direction angle
-                    | L.GlideAround(_) -> failwith "get to this later"
-                | L.OnSegment(L.PointOnSegment(position, segment)) -> pointOnSegmentChain (solveSegment segment) position |> snd 
-                // todo: should I be using Result based error handling in here? I don't see why I should plumb inside when I could catch on the outside
-                // and maintain a pure interface
-                | L.Intersection(line1, line2) -> solvePointLineIntersect (solveLine line1) (solveLine line2) |> okay
+    // let rec solveSegment solvePoint solveLine tryFindSegment returnSegment segment = 
+    //     let go = solveSegment solvePoint solveLine tryFindSegment returnSegment
+    //         // assert last point in 
+    //     match tryFindSegment segment with
+    //         | Some chain -> chain
+    //         | None -> returnSegment segment <| match segment with
+    //             | L.Link(p1, p2) -> Straight(solvePoint p1, solvePoint p2)
+    //             | L.Chain(s, p) 
 
 
-    let solve () = 
+    let solve (segments: L.Segment list) = 
         let mutable context = {PointContext = Map.empty; SegmentContext = Map.empty; LineContext = Map.empty;}
 
         let returnPoint orig solved =
             context <- {context with PointContext = Map.add orig solved context.PointContext}
             solved
 
+        let returnSegment orig solved =
+            context <- {context with SegmentContext = Map.add orig solved context.SegmentContext}
+            solved
+
+        let returnLine orig solved =
+            context <- {context with LineContext = Map.add orig solved context.LineContext}
+            solved
+
         let rec solvePoint (lpoint: L.Point) =
             match Map.tryFind lpoint context.PointContext with
                 | Some p -> p
-                | None -> returnPoint lpoint <| match lpoint with
+                | None -> 
+                    returnPoint lpoint <| 
+                    match lpoint with
                     | L.Absolute(x, y) as absolute -> {x = x; y = y}
-                    | L.Operated(origin, op) -> match op with
+                    | L.Operated(origin, op) -> 
+                        match op with
                         | L.Rotate(direction, angle, center) -> rotateAround (solvePoint origin) (solvePoint center) direction angle
                         | L.GlideAround(_) -> failwith "get to this later"
                     | L.OnSegment(L.PointOnSegment(position, segment)) -> pointOnSegmentChain (solveSegment segment) position |> snd 
@@ -249,11 +282,30 @@ module Solve =
                     // and maintain a pure interface
                     | L.Intersection(line1, line2) -> solvePointLineIntersect (solveLine line1) (solveLine line2) |> okay
 
-        and solveSegment (segment: L.Segment) : SegmentChain = []
+        and solveSegment (segment: L.Segment) : SegmentChain = 
+            match Map.tryFind segment context.SegmentContext with
+                | Some chain -> chain
+                | None -> 
+                    returnSegment segment <| 
+                    match segment with
+                    | L.Link(p1, p2) -> [Straight(solvePoint p1, solvePoint p2)]
+                    | L.Chain(s, p) -> extendSegmentToPoint (solveSegment s) (solvePoint p)
+                    | L.Concat(s1, s2) -> mergeSegmentChains (solveSegment s1) (solveSegment s2) |> okay
+                    | L.Perpendicular(position, originSegment, endSegment) -> [solveSegmentPerpendicular position (solveSegment originSegment) (solveSegment endSegment)]
+                    | L.Snipped(orig, cutAt) -> solveSegmentSnipped (solveSegment orig) (solveSegment cutAt)
 
-        and solveLine (line: L.Line) : Line = Vertical(0.0)
+        and solveLine (line: L.Line) : Line = 
+            match Map.tryFind line context.LineContext with 
+                | Some l -> l 
+                | None ->
+                    returnLine line <|
+                    match line with
+                    | L.Line.Perpendicular(pos, segment) -> solveLinePerpendicular pos (solveSegment segment)
+                    | L.VerticalThroughX(x, segment) -> solveLineVerticalThroughX x (solveSegment segment)
+                    | L.HorizontalThroughY(y, segment) -> solveLineHorizontalThroughY y (solveSegment segment)
+                    | L.ExtendSegment(segment) -> solveLineExtendSegment (solveSegment segment) |> okay
 
-        ()
+        List.map solveSegment segments
 
 
     // let solve segments = 
