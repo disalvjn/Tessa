@@ -21,7 +21,6 @@ module Solve =
 
     type Segment = 
         | Straight of Point * Point
-        | QuadraticBezier of orig: Point * control: Point * dest: Point
 
     type SegmentChain = Segment list
 
@@ -43,21 +42,21 @@ module Solve =
 
     let length segment = 
         // https://gist.github.com/tunght13488/6744e77c242cc7a94859
-        let quadraticBezierLength (orig: Point) (control: Point) (dest: Point) =
-           let ax = orig.x - 2.0 * control.x + dest.x
-           let ay = orig.y - 2.0 * control.y + dest.y
-           let bx = 2.0 * control.x - 2.0 * orig.x
-           let by = 2.0 * control.y - 2.0 * orig.y
-           let A = 4.0 * (ax * ax + ay * ay)
-           let B = 4.0 * (ax * bx + ay * by)
-           let C = bx * bx + by * by
-           let Sabc = 2.0 * sqrt(A+B+C)
-           let A_2 = sqrt(A)
-           let A_32 = 2.0 * A * A_2
-           let C_2 = 2.0 * sqrt(C)
-           let BA = B / A_2
+        // let quadraticBezierLength (orig: Point) (control: Point) (dest: Point) =
+        //    let ax = orig.x - 2.0 * control.x + dest.x
+        //    let ay = orig.y - 2.0 * control.y + dest.y
+        //    let bx = 2.0 * control.x - 2.0 * orig.x
+        //    let by = 2.0 * control.y - 2.0 * orig.y
+        //    let A = 4.0 * (ax * ax + ay * ay)
+        //    let B = 4.0 * (ax * bx + ay * by)
+        //    let C = bx * bx + by * by
+        //    let Sabc = 2.0 * sqrt(A+B+C)
+        //    let A_2 = sqrt(A)
+        //    let A_32 = 2.0 * A * A_2
+        //    let C_2 = 2.0 * sqrt(C)
+        //    let BA = B / A_2
 
-           (A_32 * Sabc + A_2 * B * (Sabc - C_2) + (4.0 * C * A - B * B) * log((2.0 * A_2 + BA + Sabc) / (BA + C_2))) / (4.0 * A_32);
+        //    (A_32 * Sabc + A_2 * B * (Sabc - C_2) + (4.0 * C * A - B * B) * log((2.0 * A_2 + BA + Sabc) / (BA + C_2))) / (4.0 * A_32);
 
         let straightLength orig dest =
             let square x = x * x
@@ -65,7 +64,6 @@ module Solve =
 
         match segment with
             | Straight (orig, dest) -> straightLength orig dest
-            | QuadraticBezier (orig, control, dest) -> quadraticBezierLength orig control dest
 
     let slope orig dest = 
         match dest.x - orig.x with
@@ -109,15 +107,12 @@ module Solve =
                 match List.tryLast segmentChain with
                 | None -> failwith "Can't take a point on an empty segment chain"
                 | Some(Straight(orig, dest) as segment) -> getOnSegment segment orig dest
-                | Some(QuadraticBezier(_)) -> failwith "No way to extend quadratic bezier"
             | Some(Straight(orig, dest) as segment) -> getOnSegment segment orig dest
-            | Some(QuadraticBezier(_)) -> failwith "oof"
 
     let mergeSegmentChains chain1 chain2 = failwith ""
 
     let solveLinePerpendicular (location: Location) (segment: Segment) =
         match segment with
-            | QuadraticBezier(_, _, _) -> failwith "oof"
             | Straight(orig, dest) -> 
                 match slope orig dest with
                     // Vertical lines become horizontal lines with slope=0
@@ -129,7 +124,6 @@ module Solve =
 
     let solveLineExtendSegment segment = 
         match segment with 
-            | QuadraticBezier(_,_,_) -> failwith "oof"
             | Straight(orig, dest) -> 
                 match slope orig dest with
                     | None -> Vertical orig.x
@@ -137,12 +131,10 @@ module Solve =
 
     let solveLineVerticalThroughX location segment =
         match segment with 
-            | QuadraticBezier(_,_,_) -> failwith "oof"
             | Straight(orig, dest) -> pointOnStraightSegment orig dest location |> Point.x |> Vertical
 
     let solveLineHorizontalThroughY location segment =
         match segment with
-            | QuadraticBezier(_,_,_) -> failwith "oof"
             | Straight(orig, dest) -> Sloped(pointOnStraightSegment orig dest location, 0.0)
 
     let rotateAround point around direction degree = 
@@ -187,7 +179,6 @@ module Solve =
         let pointWithinSegmentBounds point segment = 
             match segment with
             | Straight(orig, dest) -> pointBoundedBy point orig dest
-            | QuadraticBezier(orig, _, dest) -> pointBoundedBy point orig dest
 
         let segmentsIntersect s1 s2 = 
             let l1 = solveLineExtendSegment s1
@@ -199,7 +190,6 @@ module Solve =
         let replaceEnd segment point =
             match segment with
                 | Straight(orig, dest) -> Straight(orig, point)
-                | QuadraticBezier(orig, control, dest) -> QuadraticBezier(orig, control, point)
 
         let rec search segments = 
             match segments with

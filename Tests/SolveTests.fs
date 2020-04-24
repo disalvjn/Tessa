@@ -32,19 +32,11 @@ module SolveTests =
         let solved = S.solveLineVerticalThroughX 0.5 segment
         Assert.Equal(S.Vertical(0.5), solved)
 
-    // [<Fact>]
-    // let ``solveLineVerticalThroughX on QuadraticBezier Segment`` () =
-    //     Assert.True(false)
-
     [<Fact>]
     let ``solveLineHorizontalThroughY on Straight Segment`` () =
         let segment = S.Straight({x= 0.0; y = 0.0;}, {x = 1.0; y = 1.0;})
         let solved = S.solveLineHorizontalThroughY 0.5 segment
         Assert.Equal(S.Sloped({x = 0.5; y = 0.5;}, 0.0), solved)
-
-    // [<Fact>]
-    // let ``solveLineHorizontalThroughY on QuadraticBezier Segment`` () =
-    //     Assert.True(false)
 
     [<Fact>]
     let ``solveLineExtendSegment Vertical Straight Segment`` () =
@@ -57,10 +49,6 @@ module SolveTests =
         let segment = S.Straight({x = 0.0; y = 0.0;}, {x = 1.0; y = 2.0;})
         let solved = S.solveLineExtendSegment segment
         Assert.Equal(S.Sloped({x = 0.0; y = 0.0;}, 2.0), solved)
-
-    // [<Fact>]
-    // let ``solveLineExtendSegment QuadraticBezier Segment`` () =
-    //     Assert.True(false)
 
     [<Fact>]
     let ``solveLinePerpendicular Sloped Straight Segment`` () = 

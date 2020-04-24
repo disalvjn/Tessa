@@ -31,7 +31,7 @@ module Language =
         | Concat of Segment * Segment
         | Perpendicular of  position: double * originSegment: Segment * endSegment: Segment
         | Snipped of original: Segment * cutAt: Segment
-        | QuadraticBezier of orig: Point * control: Point * dest: Point
+        // | QuadraticBezier of orig: Point * control: Point * dest: Point
         // | FocalSplit of farSegment: Segment * nearSegment: Segment * focal: Point * numberPolygons: int
         static member ToSegmentable s = AlreadySegment(s)
         static member Expression s = SegmentExp(s)
@@ -171,35 +171,35 @@ module Examples =
 
 
     // Designing Tessellations p176
-    let buildSoaringHighCell:Builder<IsoscelesTriangle> =  fun triangle ->
-        // a
-        // |\
-        // |   \
-        // |     \
-        // |       \  b
-        // |      /
-        // |    /
-        // |  /
-        // |/
-        //  c
-        let {BottomLeft = a; Top = b; BottomRight = c;} = triangle
+    // let buildSoaringHighCell:Builder<IsoscelesTriangle> =  fun triangle ->
+    //     // a
+    //     // |\
+    //     // |   \
+    //     // |     \
+    //     // |       \  b
+    //     // |      /
+    //     // |    /
+    //     // |  /
+    //     // |/
+    //     //  c
+    //     let {BottomLeft = a; Top = b; BottomRight = c;} = triangle
 
-        let i1 = (a + c |> Y 0.25) * (a + b |> X 0.25)
-        let i2 = (a + c |> Y 0.375) * (a + b |> X 0.125)
-        let i3 = (a + c |> Y 0.5) * (a + b |> X 0.375)
-        let r1 = GlideAround(b, c, a)
+    //     let i1 = (a + c |> Y 0.25) * (a + b |> X 0.25)
+    //     let i2 = (a + c |> Y 0.375) * (a + b |> X 0.125)
+    //     let i3 = (a + c |> Y 0.5) * (a + b |> X 0.375)
+    //     let r1 = GlideAround(b, c, a)
 
-        let control = c + b -|> (0.5, a + b) @ 0.3
+    //     let control = c + b -|> (0.5, a + b) @ 0.3
 
-        let topBorder = a + i1 + i2 + i3 + (a + b @ 0.625) + (i3 % r1) + (i2 % r1) + (i1 % r1) + c + QuadraticBezier(b, control % r1, a)
-        let lowerBorder = QuadraticBezier(c, control, b)
+    //     let topBorder = a + i1 + i2 + i3 + (a + b @ 0.625) + (i3 % r1) + (i2 % r1) + (i1 % r1) + c + QuadraticBezier(b, control % r1, a)
+    //     let lowerBorder = QuadraticBezier(c, control, b)
 
-        let focal = (a + c |> Y 1.3) * (c + b |> X 0.5)
+    //     let focal = (a + c |> Y 1.3) * (c + b |> X 0.5)
 
-        let (s1, s2) = splitFocal2 focal topBorder lowerBorder
-        let (p1, p2, p3) = (down 0.5 s1, down 0.5 s2, up 0.5 s2)
+    //     let (s1, s2) = splitFocal2 focal topBorder lowerBorder
+    //     let (p1, p2, p3) = (down 0.5 s1, down 0.5 s2, up 0.5 s2)
 
-        ([topBorder + lowerBorder; s1; s2], [p1; p2; p3], [var "i1" i1; var "i2" i2; var "i3" i3; var "c" control; var "c%r1" <| control % r1])
+    //     ([topBorder + lowerBorder; s1; s2], [p1; p2; p3], [var "i1" i1; var "i2" i2; var "i3" i3; var "c" control; var "c%r1" <| control % r1])
 
     // Designing Tessellations p71 -- Mosaic floor in Amber Palace in Jaipur, India
     let buildTriangleMosiacCell:Builder<IsoscelesTriangle> = fun triangle ->
