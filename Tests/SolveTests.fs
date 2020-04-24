@@ -3,9 +3,22 @@ namespace Tessa.SolveTests
 open System
 open Xunit
 open Tessa.Solve
+open Tessa.Language
 
 module SolveTests = 
     module S = Solve
+    module L = Language
+
+    let AssertPointEqual (actual: S.Point) (expected: S.Point) =
+        let eps = 0.01
+        Assert.InRange(actual.x, expected.x - eps, expected.x + eps)
+        Assert.InRange(actual.y, expected.y - eps, expected.y + eps)
+
+    let AssertSegmentEqual (S.Straight(orig, dest)) (S.Straight(orig2, dest2)) =
+        AssertPointEqual orig orig2
+        AssertPointEqual dest dest2
+
+    let p x y = {S.x = x; S.y = y;}
 
     [<Fact>]
     let ``solveLineVerticalThroughX on Straight Segment`` () =
@@ -90,4 +103,60 @@ module SolveTests =
         let (as6, p6) = S.pointOnSegmentChain chain 2.0
         Assert.Equal({S.Point.x = 16.0; S.Point.y = 0.0;}, p6)
         Assert.Equal(s5, as6)
+
+    [<Fact>]
+    let ``Rotate around point`` () =
+
+        let around = p 1.0 1.0
+        let start = p 1.0 2.0
+
+        AssertPointEqual (p 2.0 1.0) <| S.rotateAround start around L.Clockwise L.C4
+        AssertPointEqual (p 0.0 1.0) <| S.rotateAround start around L.CounterClockwise L.C4
+        AssertPointEqual (p 1.0 0.0) <| S.rotateAround start around L.Clockwise L.C2
+
+        let fullCircle angle = 
+            (fun s -> S.rotateAround s around L.Clockwise angle) >> (fun s -> S.rotateAround s around L.CounterClockwise angle)
+
+        AssertPointEqual (p 3.0 4.0) <| fullCircle L.C6 (p 3.0 4.0)
+        AssertPointEqual (p 3.0 4.0) <| fullCircle L.C3 (p 3.0 4.0)
+
+    [<Fact>]
+    let ``Solve Point at Intersection of Lines`` () =
+        let fromResult = function
+            | Error e -> failwith e
+            | Ok o -> o
+        let verticalThrough1 = S.Vertical(1.0)
+        let upDiag = S.Sloped(p 0.0 0.0, 1.0)
+        let downDiag = S.Sloped(p 0.0 0.0, -1.0)
+
+        let solve = fun l1 l2 -> fromResult <| S.solvePointLineIntersect l1 l2
+
+        AssertPointEqual (p 1.0 1.0)  <| solve verticalThrough1 upDiag
+        AssertPointEqual (p 1.0 -1.0) <| solve verticalThrough1 downDiag
+        AssertPointEqual (p 0.0 0.0)  <| solve upDiag downDiag
+
+    [<Fact>]
+    let ``Solve Segment Snipped`` () =
+        let toSegments points  =
+            Seq.zip points (List.tail points)
+            |> Seq.fold (fun segList (p1, p2) -> S.Straight(p1, p2) :: segList) []
+            |> Seq.toList
+            |> List.rev
+
+        let chain1 = toSegments [p -3.0 4.0; p -1.0 2.0; p -3.0 1.0; p -2.0 0.0; p -1.0 1.0; p 1.0 -1.0; p 1.0 -3.0]
+        let chain2 = toSegments [p 3.0 3.0; p 1.0 2.0; p 1.0 1.0; p -1.0 -1.0; p -1.0 -2.0]
+
+        // AssertPointEqual (List.head chain1 |> fun (S.Straight (orig, dest)) -> orig) (p -3.0 4.0)
+        // AssertPointEqual (List.head chain1 |> fun (S.Straight (orig, dest)) -> dest) (p -1.0 2.0)
+        // AssertPointEqual (List.head (List.tail chain1) |> fun (S.Straight (orig, dest)) -> orig) (p -1.0 2.0)
+
+        let snippedChain1 = S.solveSegmentSnipped chain1 chain2
+        Assert.Equal(5, List.length snippedChain1)
+        AssertSegmentEqual (List.last snippedChain1) <| S.Straight(p -1.0 1.0, p 0.0 0.0)
+
+        let snippedChain2 = S.solveSegmentSnipped chain2 chain1
+        Assert.Equal(3, List.length snippedChain2)
+        AssertSegmentEqual (List.last snippedChain2) <| S.Straight(p 1.0 1.0, p 0.0 0.0)
+        
+
 

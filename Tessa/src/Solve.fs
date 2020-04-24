@@ -70,6 +70,9 @@ module Solve =
          slope orig dest 
         |> Option.map (fun m -> m * (x - dest.x) + dest.y)
 
+    let evaluateLineAtWithSlope m point x = 
+        m * (x - point.x) + point.y
+
     let pointOnStraightSegment orig dest location = 
         let dx = dest.x - orig.x
         let dy = dest.y - orig.y
@@ -136,11 +139,68 @@ module Solve =
             | QuadraticBezier(_,_,_) -> failwith "oof"
             | Straight(orig, dest) -> Sloped(pointOnStraightSegment orig dest location, 0.0)
 
+    let rotateAround point around direction degree = 
+        let degreeAsInt = 
+            match degree with
+            | L.C2 -> 180
+            | L.C3 -> 120
+            | L.C4 -> 90
+            | L.C6 -> 60
 
+        let degreeAsClockwise = 
+            match direction with
+            | L.Clockwise -> 360 - degreeAsInt
+            | L.CounterClockwise -> degreeAsInt
 
-    // let test1 =  pointOnSegment (point 0.0 0.0) (point 1.0 2.0) 0.5 
+        let radians = (float degreeAsClockwise) * Math.PI/180.0 
 
-    //
+        {x = Math.Cos(radians) * (point.x - around.x) - Math.Sin(radians) * (point.y - around.y) + around.x;
+        y = Math.Sin(radians) * (point.x - around.x) + Math.Cos(radians) * (point.y - around.y) + around.y;}
+
+    let solvePointLineIntersect m n = 
+        match (m, n) with
+        | (Vertical(_), Vertical(_)) -> Error "There is no single point at which two vertical lines intersect."
+        | (Sloped(point, slope), Vertical(x)) -> Ok {x = x; y = evaluateLineAtWithSlope slope point x}
+        | (Vertical(x), Sloped(point, slope)) -> Ok {x = x; y = evaluateLineAtWithSlope slope point x}
+        | (Sloped(point1, slope1), Sloped(point2, slope2)) -> 
+            if slope1 = slope2
+            then Error "The lines are either parallel or identical -- no single point of intersection"
+            else 
+                let x = (slope1 * point1.x - slope2 * point2.x + point2.y - point1.y) / (slope1 - slope2)
+                let y = evaluateLineAtWithSlope slope1 point1 x
+                Ok {x = x; y = y;}
+
+    let solveSegmentSnipped (original: SegmentChain) (cutAt: SegmentChain) = 
+        let pointBoundedBy point p q =
+            (min p.x q.x) <= point.x && point.x <= (max p.x q.x) && (min p.y q.y) <= point.y && point.y <= (max p.y q.y)
+
+        let pointWithinSegmentBounds point segment = 
+            match segment with
+            | Straight(orig, dest) -> pointBoundedBy point orig dest
+            | QuadraticBezier(orig, _, dest) -> pointBoundedBy point orig dest
+
+        let segmentsIntersect s1 s2 = 
+            let l1 = solveLineExtendSegment s1
+            let l2 = solveLineExtendSegment s2
+            match solvePointLineIntersect l1 l2 with
+            | Error _ -> None
+            | Ok p -> if (pointWithinSegmentBounds p s1) && (pointWithinSegmentBounds p s2) then Some p else None
+
+        let replaceEnd segment point =
+            match segment with
+                | Straight(orig, dest) -> Straight(orig, point)
+                | QuadraticBezier(orig, control, dest) -> QuadraticBezier(orig, control, point)
+
+        let rec search segments = 
+            match segments with
+            | [] -> []
+            | segment::rest -> 
+                let possibleCut = List.map (segmentsIntersect segment) cutAt |> List.filter Option.isSome |> List.tryHead
+                match possibleCut with
+                    | Some (Some cutPoint) -> [replaceEnd segment cutPoint]
+                    | _ -> segment :: (search rest)
+
+        search original
 
     // type SolveContext = {
     //    PointContext: Dictionary<L.Point, Point>; 

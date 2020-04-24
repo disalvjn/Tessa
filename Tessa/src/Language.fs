@@ -8,7 +8,11 @@ module Language =
         | C2
         | C3
         | C4
-        | C6 
+        | C6
+
+    type RotationDirection =
+     | Clockwise
+     | CounterClockwise
 
     type Point = 
         | Absolute of x: double * y: double
@@ -26,8 +30,8 @@ module Language =
         | Chain of Segment * Point
         | Concat of Segment * Segment
         | Perpendicular of  position: double * originSegment: Segment * endSegment: Segment
-        | QuadraticBezier of orig: Point * control: Point * dest: Point
         | Snipped of original: Segment * cutAt: Segment
+        | QuadraticBezier of orig: Point * control: Point * dest: Point
         // | FocalSplit of farSegment: Segment * nearSegment: Segment * focal: Point * numberPolygons: int
         static member ToSegmentable s = AlreadySegment(s)
         static member Expression s = SegmentExp(s)
@@ -46,10 +50,8 @@ module Language =
         static member ToLine l = l
 
     and Operation =
-        | Translate
         | GlideAround of pinned: Point * ``from``: Point * ``to``: Point
-        | Rotate of angle: Rotation * point: Point
-        | Mirror
+        | Rotate of direction: RotationDirection * angle: Rotation * point: Point
 
     and Polygon = 
         | Up of PointOnSegment // must be on line
@@ -153,8 +155,8 @@ module Examples =
         let i1 = a + b -|> (0.25, d + c) @ 0.25 
         let i2 = b + a -|> (0.33, c + d) @ 0.33
 
-        let r1 = Rotate(C4, d)
-        let r2 = Rotate(C4, b)
+        let r1 = Rotate(CounterClockwise, C4, d)
+        let r2 = Rotate(CounterClockwise, C4, b)
 
         let leftBorder = (i2 % r2) + b + i2 + c + (i1 % r1)
         let rightBorder = (i2 % r2) + a + i1 + b + (i1 % r1)
