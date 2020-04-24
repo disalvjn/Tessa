@@ -155,16 +155,17 @@ module Examples =
         let i1 = a + b -|> (0.25, d + c) @ 0.25 
         let i2 = b + a -|> (0.33, c + d) @ 0.33
 
-        let r1 = Rotate(CounterClockwise, C4, d)
-        let r2 = Rotate(CounterClockwise, C4, b)
+        let r1 = Rotate(Clockwise, C4, d)
+        let r2 = Rotate(Clockwise, C4, b)
 
-        let leftBorder = (i2 % r2) + b + i2 + c + (i1 % r1)
-        let rightBorder = (i2 % r2) + a + i1 + b + (i1 % r1)
+        let leftBorder = (i2 % r2) + a + i1 + d + (i1 % r1)
+        let rightBorder = (i2 % r2) + b + i2 + c + (i1 % r1)
         let border = leftBorder + rightBorder
 
-        let focal = a + d -|> (0.5, leftBorder) @ 2.0
+        let focal = a + d -|> (0.5, b + c) @ 2.0
 
         let (s1, s2, s3, s4, s5) = splitFocal5 focal leftBorder rightBorder
+
         let (p1, p2, p3, p4, p5, p6) = (down 0.5 s1, down 0.5 s2, down 0.5 s3, down 0.5 s4, down 0.5 s5, up 0.5 s5)
 
         ([border; s1; s2; s3; s4; s5], [p1; p2; p3; p4; p5; p6], [var "i1" i1; var "i2" i2; var "i1 % r1" <| i1 % r1; var "i2 % r2" <| i2 % r2])
