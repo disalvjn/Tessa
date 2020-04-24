@@ -3,11 +3,14 @@ namespace Tessa.Solve
 open System
 open FSharp.Collections
 open Tessa.Language 
+open Tessa.Util
 open System.Collections.Generic
 
 // todo: Split into more submodules. Solve.Types, Solve.Line (for line solver) etc.?
 module Solve =
     module L = Language
+    open Util
+    module S = State
 
     type Point = {x: double; y: double;}
     // https://stackoverflow.com/a/26565842/10558918
@@ -159,6 +162,10 @@ module Solve =
 
         {x = Math.Cos(radians) * (point.x - around.x) - Math.Sin(radians) * (point.y - around.y) + around.x;
         y = Math.Sin(radians) * (point.x - around.x) + Math.Cos(radians) * (point.y - around.y) + around.y;}
+    
+    // let solvePointOperated point operation =
+    //     match operation with
+    //     | L.Rotate(direction, angle, center) -> rotateAround point center direction angle
 
     let solvePointLineIntersect m n = 
         match (m, n) with
@@ -205,12 +212,6 @@ module Solve =
 
         search original
 
-    let rec okays list = 
-        match list with
-        | [] -> []
-        | Ok o :: rest -> o :: okays rest
-        | Error _ :: rest -> okays rest
-
     let solveSegmentPerpendicular position (origSegment: SegmentChain) (endSegment: SegmentChain) =
         let (segment, startPoint) = pointOnSegmentChain origSegment position
         let perpLine = solveLinePerpendicular position segment
@@ -221,12 +222,34 @@ module Solve =
             |> List.minBy (distance startPoint)
         Straight(startPoint, intersectionPoint)
 
-    // type SolveContext = {
-    //    PointContext: Dictionary<L.Point, Point>; 
-    //    SegmentContext: Dictionary<L.Segment, Segment>;
-    // }
+    type SolveContext = {PointContext: Map<L.Point, Point>; SegmentContext: Map<L.Segment, SegmentChain>; LineContext: Map<L.Line, Line>}
 
-    // let makeContext () = {PointContext = new Dictionary<L.Point, Point>(); SegmentContext = new Dictionary<L.Segment, Segment>()}
+    let solve () = 
+        let mutable context = {PointContext = Map.empty; SegmentContext = Map.empty; LineContext = Map.empty;}
+
+        let returnPoint orig solved =
+            context <- {context with PointContext = Map.add orig solved context.PointContext}
+            solved
+
+        let rec solvePoint (lpoint: L.Point) =
+            match Map.tryFind lpoint context.PointContext with
+                | Some p -> p
+                | None -> returnPoint lpoint <| match lpoint with
+                    | L.Absolute(x, y) as absolute -> {x = x; y = y}
+                    | L.Operated(origin, op) -> match op with
+                        | L.Rotate(direction, angle, center) -> rotateAround (solvePoint origin) (solvePoint center) direction angle
+                        | L.GlideAround(_) -> failwith "get to this later"
+                    | L.OnSegment(L.PointOnSegment(position, segment)) -> pointOnSegmentChain (solveSegment segment) position |> snd 
+                    // todo: should I be using Result based error handling in here? I don't see why I should plumb inside when I could catch on the outside
+                    // and maintain a pure interface
+                    | L.Intersection(line1, line2) -> solvePointLineIntersect (solveLine line1) (solveLine line2) |> okay
+
+        and solveSegment (segment: L.Segment) : SegmentChain = []
+
+        and solveLine (line: L.Line) : Line = Vertical(0.0)
+
+        ()
+
 
     // let solve segments = 
     //     // todo: I'm not actually using the cache anywhere
