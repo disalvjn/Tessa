@@ -224,6 +224,21 @@ module Solve =
 
     type SolveContext = {PointContext: Map<L.Point, Point>; SegmentContext: Map<L.Segment, SegmentChain>; LineContext: Map<L.Line, Line>}
 
+    let rec solvePoint solveSegment solveLine tryFindPoint returnPoint lpoint =
+        let go = solvePoint solveSegment solveLine tryFindPoint returnPoint
+        match tryFindPoint lpoint with
+            | Some p -> p
+            | None -> returnPoint lpoint <| match lpoint with
+                | L.Absolute(x, y) as absolute -> {x = x; y = y}
+                | L.Operated(origin, op) -> match op with
+                    | L.Rotate(direction, angle, center) -> rotateAround (go origin) (go center) direction angle
+                    | L.GlideAround(_) -> failwith "get to this later"
+                | L.OnSegment(L.PointOnSegment(position, segment)) -> pointOnSegmentChain (solveSegment segment) position |> snd 
+                // todo: should I be using Result based error handling in here? I don't see why I should plumb inside when I could catch on the outside
+                // and maintain a pure interface
+                | L.Intersection(line1, line2) -> solvePointLineIntersect (solveLine line1) (solveLine line2) |> okay
+
+
     let solve () = 
         let mutable context = {PointContext = Map.empty; SegmentContext = Map.empty; LineContext = Map.empty;}
 
