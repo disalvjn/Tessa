@@ -49,6 +49,9 @@ module Solve =
         | LineVerticalThroughX of Location * SolveError option
         | LineHorizontalThroughY of Location * SolveError option
         | PointLineIntersect of string * Line * Line * SolveError option
+        | SegmentPerpendicular of string * SegmentChain * SegmentChain * SolveError option
+        | SegmentSnipped of Segment * SolveError option
+        | MergeSegmentChains of string * SegmentChain * SegmentChain * SolveError option
 
     let distance p q =
         sqrt <| (p.x - q.x)**2.0 + (p.y - q.y)** 2.0
@@ -122,19 +125,20 @@ module Solve =
                 | Some(Straight(orig, dest) as segment) -> Ok <| getOnSegment segment orig dest
             | Some(Straight(orig, dest) as segment) -> Ok <| getOnSegment segment orig dest
 
-    let solveLinePerpendicular (location: Location) (segmentChain: SegmentChain) =
-        let segmentPoint = pointOnSegmentChain segmentChain location
-        match segmentPoint with
-            | Ok(Straight(orig, dest), point) -> 
-                Ok <| 
-                    match slope orig dest with
-                    // Vertical lines become horizontal lines with slope=0
-                    | None -> Sloped(point, 0.0)
-                    // Horizontal lines become vertical lines
-                    | Some 0.0 -> point |> Point.x |> Vertical
-                    // All other lines have m -> -1/m
-                    | Some m -> Sloped(point, -1.0 / m)
-            | Error e -> Error (LinePerpendicularToSegmentChain ("Can't find line perpendicular to empty segment", (Some e)))
+    let solveLinePerpendicular (location: Location) (segmentChain: SegmentChain) = 
+        Result.result {
+            let! segmentPoint = pointOnSegmentChain segmentChain location
+            return 
+                match segmentPoint with
+                | (Straight(orig, dest), point) -> 
+                        match slope orig dest with
+                        // Vertical lines become horizontal lines with slope=0
+                        | None -> Sloped(point, 0.0)
+                        // Horizontal lines become vertical lines
+                        | Some 0.0 -> point |> Point.x |> Vertical
+                        // All other lines have m -> -1/m
+                        | Some m -> Sloped(point, -1.0 / m)
+        } |> Result.mapError (fun e -> LinePerpendicularToSegmentChain ("Can't find line perpendicular to empty segment", (Some e)))
 
     let solveLineExtendSegment segmentChain = 
         match List.length segmentChain with
@@ -148,10 +152,16 @@ module Solve =
         | _ -> Error <| ExtendSegmentToLine("more than 1 segment in chain; unable to extend to line", segmentChain, None)
 
     let solveLineVerticalThroughX location segmentChain =
-        Result.bimap (Point.x >> Vertical) (fun e -> LineVerticalThroughX (location, Some e))
+        Result.bimap 
+            (snd >> Point.x >> Vertical) 
+            (fun e -> LineVerticalThroughX (location, Some e))
+            (pointOnSegmentChain segmentChain location)
 
     let solveLineHorizontalThroughY location segmentChain =
-        Result.bimap (fun p -> Sloped(p, 0.0)) (fun e -> LineHorizontalThroughY (location, Some e))
+        Result.bimap 
+            (snd >> fun p -> Sloped(p, 0.0)) 
+            (fun e -> LineHorizontalThroughY (location, Some e))
+            (pointOnSegmentChain segmentChain location)
 
     let rotateAround point around direction degree = 
         let degreeAsInt = 
@@ -196,12 +206,15 @@ module Solve =
             match segment with
             | Straight(orig, dest) -> pointBoundedBy point orig dest
 
-        let segmentsIntersect s1 s2 = 
-            let l1 = solveLineExtendSegment [s1] |> okay
-            let l2 = solveLineExtendSegment [s2] |> okay
-            match solvePointLineIntersect l1 l2 with
-            | Error _ -> None
-            | Ok p -> if (pointWithinSegmentBounds p s1) && (pointWithinSegmentBounds p s2) then Some p else None
+        let segmentsIntersect s1 s2 =  Result.fromOk None <| Result.result {
+            let! extend1 = solveLineExtendSegment [s1]
+            let! extend2 = solveLineExtendSegment [s2] 
+            let! intersect = solvePointLineIntersect extend1 extend2
+            return 
+                if (pointWithinSegmentBounds intersect s1) && (pointWithinSegmentBounds intersect s2) 
+                then Some intersect 
+                else None
+        } 
 
         let replaceEnd segment point =
             match segment with
@@ -219,14 +232,19 @@ module Solve =
         search original
 
     let solveSegmentPerpendicular position (origSegment: SegmentChain) (endSegment: SegmentChain) =
-        let (_, startPoint) = pointOnSegmentChain origSegment position
-        let perpLine = solveLinePerpendicular position origSegment
-        let intersectionPoint = 
-            endSegment 
-            |> List.map ((fun x -> [x]) >> solveLineExtendSegment >> okay >> (solvePointLineIntersect perpLine))
-            |> okays
-            |> List.minBy (distance startPoint)
-        Straight(startPoint, intersectionPoint)
+        Result.result {
+            let! (_, startPoint) = pointOnSegmentChain origSegment position
+            let! perpLine = solveLinePerpendicular position origSegment
+            let (>>=) x f = Result.bind f x
+            let intersectionPoints = 
+                endSegment 
+                |> List.map (fun x -> Ok [x] >>= solveLineExtendSegment >>= (solvePointLineIntersect perpLine))
+                |> okays
+            return! 
+                match intersectionPoints with
+                | [] -> Error <| SegmentPerpendicular("Found no intersection between segments", origSegment, endSegment, None)
+                | _ -> Ok <| Straight(startPoint, List.minBy (distance startPoint) intersectionPoints)
+        }
 
     let origDest = function
         | Straight(orig, dest) -> (orig, dest)
@@ -241,7 +259,7 @@ module Solve =
         if equalEnough last1dest first2orig
         // Rebuild first point with last1dest to account for any minute differences
         then Ok <| chain1 @ (Straight(last1dest, first2dest) :: List.tail chain2)
-        else Error "The last point of chain1 is not close enough to the first point of chain2"
+        else Error <| MergeSegmentChains("The last point of chain1 is not close enough to the first point of chain2", chain1, chain2, None)
 
     let extendSegmentToPoint chain point =
         let (_, lastPointInChain) = origDest <| List.last chain

@@ -22,6 +22,16 @@ module Util =
 
    let cons x y = x :: y
 
+   // type Either<'l, 'r> = 
+   //    | Left of 'l
+   //    | Right of 'r
+   //    static member Bind (x, f) = 
+   //       match x with
+   //       | Left l -> Left l
+   //       | Right r -> f r
+
+   let inline (>>=) (x:'ma) (f:'a -> 'mb) = (^ma: (static member Bind: 'ma * ('a -> 'mb) -> 'mb) (x, f))
+
 // http://matthewmanela.com/blog/functional-stateful-program-in-f/
 module State = 
    type StateData<'st, 'a> =
@@ -47,3 +57,44 @@ module Result =
    let bimap ok error = function
       | Ok o -> Ok <| ok o
       | Error e -> Error <| error e
+      
+   let bind2 result1 result2 f = 
+      Result.bind (fun r1 ->
+         Result.bind (fun r2 -> f r1 r2) result2
+      ) result1
+   
+   let cata ok error = function 
+      | Ok o -> ok o
+      | Error e -> error e
+
+   let fromOk errorDefault = function
+      | Ok o -> o 
+      | Error _ -> errorDefault
+
+   let fromError okDefault = function 
+      | Ok _ -> okDefault
+      | Error e -> e
+
+   let mapError f x = bimap id f x
+
+   let sequence xs = List.fold (fun acc x -> bind2 acc x (fun acc' x' -> Ok <| x' :: acc')) (Ok []) xs
+
+   type ResultBuilder() =
+      member b.Return(x) = Ok x
+      member b.ReturnFrom(x) = x
+      member b.Error e = Error e
+      member b.Bind (x, f) = 
+         match x with 
+         | Ok o -> f o
+         | Error e -> Error e
+
+   type Result<'a, 'b> with
+      static member Bind (x, f) = 
+         match x with
+         | Error l -> Error l
+         | Ok r -> f r
+   
+   let result = ResultBuilder ()
+
+
+      
