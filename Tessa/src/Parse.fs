@@ -18,9 +18,10 @@ module Parse =
         | RecordAccess
         | Snip
         | Draw
+        // has optional assignment semantics also! more convenient.
         | CellBuild
 
-    type Value = 
+    type Word = 
         | Identifier of string
         | Number of float
         | PrimitiveProcedure of PrimitiveProcedure
@@ -29,7 +30,7 @@ module Parse =
         | ReduceAndPushOp of PrimitiveProcedure option
         | BeginNewStack
         | EndStack
-        | Expression of Value
+        | Expression of Word
 
     type ParseError = {message: string}
 
@@ -70,19 +71,3 @@ module Parse =
                 | _ -> Error {message = "Should be impossible to get here, all cases covered";}
         | [] -> Ok []
     
-
-    // type Operation =
-    //     | Primitive of PrimitiveProcedure
-    //     | Custom of string
-
-    // type StackExecutionContext = {
-    //     currentOp: Operation;
-    //     stack: Expression list;
-    //     // continuation implicitly stored in list
-    // }
-
-    // type ExecutionContext = {
-    //     // stackContext[i] has continuation stackContext[i + 1]
-    //     stackContexts: StackExecutionContext list;
-    //     environment: Map<string, Expression>;
-    // }

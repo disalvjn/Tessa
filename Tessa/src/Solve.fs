@@ -41,6 +41,15 @@ module Solve =
     type Polygon = 
         | Polygon of PolygonId * Point * Segment * PolygonDirectionality
 
+    // todo: look for calls to okay
+    type SolveError = 
+        | PointOnEmptySegmentChain of Location * SolveError option
+        | LinePerpendicularToSegmentChain of string * SolveError option
+        | ExtendSegmentToLine of string * SegmentChain * SolveError option
+        | LineVerticalThroughX of Location * SolveError option
+        | LineHorizontalThroughY of Location * SolveError option
+        | PointLineIntersect of string * Line * Line * SolveError option
+
     let distance p q =
         sqrt <| (p.x - q.x)**2.0 + (p.y - q.y)** 2.0
 
@@ -89,7 +98,7 @@ module Solve =
             | None -> {x = orig.x; y = orig.y + dy*location}
             | Some y -> {x = newX; y = y}
 
-    let pointOnSegmentChain (segmentChain: SegmentChain) (location: Location) : Segment * Point = 
+    let pointOnSegmentChain (segmentChain: SegmentChain) (location: Location) : Result<Segment * Point, SolveError> = 
         let accumulate (cumulative, m) head =
             let lengthHere = length head
             let newCumulative = lengthHere + cumulative
@@ -102,7 +111,6 @@ module Solve =
         let getOnSegment segment orig dest = 
             let (start, finish) = Map.find segment cumulatives
             let locationOnThisSegment = (hitAt - start) / (finish - start)
-            printfn "%f" locationOnThisSegment
             (segment, pointOnStraightSegment orig dest locationOnThisSegment)
 
         let choiceSegment = segmentChain |> List.skipWhile (fun s -> Map.find s cumulatives |> snd |> (>) hitAt) |> List.tryHead
@@ -110,40 +118,40 @@ module Solve =
         match choiceSegment with
             | None -> 
                 match List.tryLast segmentChain with
-                | None -> failwith "Can't take a point on an empty segment chain"
-                | Some(Straight(orig, dest) as segment) -> getOnSegment segment orig dest
-            | Some(Straight(orig, dest) as segment) -> getOnSegment segment orig dest
+                | None -> Error <| PointOnEmptySegmentChain (location, None)
+                | Some(Straight(orig, dest) as segment) -> Ok <| getOnSegment segment orig dest
+            | Some(Straight(orig, dest) as segment) -> Ok <| getOnSegment segment orig dest
 
     let solveLinePerpendicular (location: Location) (segmentChain: SegmentChain) =
-        let (segment, point) = pointOnSegmentChain segmentChain location
-        match segment with
-            | Straight(orig, dest) -> 
-                match slope orig dest with
+        let segmentPoint = pointOnSegmentChain segmentChain location
+        match segmentPoint with
+            | Ok(Straight(orig, dest), point) -> 
+                Ok <| 
+                    match slope orig dest with
                     // Vertical lines become horizontal lines with slope=0
                     | None -> Sloped(point, 0.0)
                     // Horizontal lines become vertical lines
                     | Some 0.0 -> point |> Point.x |> Vertical
                     // All other lines have m -> -1/m
                     | Some m -> Sloped(point, -1.0 / m)
+            | Error e -> Error (LinePerpendicularToSegmentChain ("Can't find line perpendicular to empty segment", (Some e)))
 
     let solveLineExtendSegment segmentChain = 
         match List.length segmentChain with
-        | 0 -> Error "No segments in chain; unable to extend to line"
+        | 0 -> Error <| ExtendSegmentToLine("No segments in chain; unable to extend to line", segmentChain, None)
         | 1 ->
             match List.head segmentChain with 
             | Straight(orig, dest) -> 
                 match slope orig dest with
                 | None -> Ok <| Vertical orig.x
                 | Some m -> Ok <| Sloped (orig, m)
-        | _ -> Error "more than 1 segment in chain; unable to extend to line"
+        | _ -> Error <| ExtendSegmentToLine("more than 1 segment in chain; unable to extend to line", segmentChain, None)
 
     let solveLineVerticalThroughX location segmentChain =
-        let (_, point) = pointOnSegmentChain segmentChain location
-        point |> Point.x |> Vertical
+        Result.bimap (Point.x >> Vertical) (fun e -> LineVerticalThroughX (location, Some e))
 
     let solveLineHorizontalThroughY location segmentChain =
-        let (segment, point) = pointOnSegmentChain segmentChain location
-        Sloped(point, 0.0)
+        Result.bimap (fun p -> Sloped(p, 0.0)) (fun e -> LineHorizontalThroughY (location, Some e))
 
     let rotateAround point around direction degree = 
         let degreeAsInt = 
@@ -169,12 +177,12 @@ module Solve =
 
     let solvePointLineIntersect m n = 
         match (m, n) with
-        | (Vertical(_), Vertical(_)) -> Error "There is no single point at which two vertical lines intersect."
+        | (Vertical(_), Vertical(_)) -> Error <| PointLineIntersect("There is no single point at which two vertical lines intersect.", m, n, None)
         | (Sloped(point, slope), Vertical(x)) -> Ok {x = x; y = evaluateLineAtWithSlope slope point x}
         | (Vertical(x), Sloped(point, slope)) -> Ok {x = x; y = evaluateLineAtWithSlope slope point x}
         | (Sloped(point1, slope1), Sloped(point2, slope2)) -> 
             if slope1 = slope2
-            then Error "The lines are either parallel or identical -- no single point of intersection"
+            then Error <| PointLineIntersect("The lines are either parallel or identical -- no single point of intersection", m, n, None)
             else 
                 let x = (slope1 * point1.x - slope2 * point2.x + point2.y - point1.y) / (slope1 - slope2)
                 let y = evaluateLineAtWithSlope slope1 point1 x

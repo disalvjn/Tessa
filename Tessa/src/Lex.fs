@@ -30,6 +30,7 @@ module Lex =
         | RecordAccess // .
         | Snip // *-*
         | Draw // !
+        | Lambda
         | CellBuilder // <#>
 
     let matchesToTokens = 
@@ -40,6 +41,7 @@ module Lex =
         ("\{\}", always RecordBuilder);
         ("\+", always LinkPoints);
         ("\|\-", always Perpendicular);
+        ("->", always Lambda);
         ("\*-\*", always Snip);
         ("\*", always Intersect);
         ("\@", always At);
