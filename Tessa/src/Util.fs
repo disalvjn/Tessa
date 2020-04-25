@@ -14,6 +14,14 @@ module Util =
       | Ok o -> o
       | Error e -> failwith e
 
+   let rec somes list =
+      match list with
+      | [] -> []
+      | Some s :: rest -> s :: somes rest 
+      | None :: rest -> somes rest
+
+   let cons x y = x :: y
+
 module State =
 
    type State<'a, 's> = 's -> 'a * 's

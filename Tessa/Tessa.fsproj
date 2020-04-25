@@ -4,8 +4,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="src/Util.fs" />
+    <Compile Include="src/Lex.fs" />
+    <Compile Include="src/Parse.fs" />
     <Compile Include="src/Language.fs" />
     <Compile Include="src/Solve.fs" />
+    <Compile Include="src/Eval.fs" />
     <Compile Include="src/Program.fs" />
   </ItemGroup>
 </Project>
