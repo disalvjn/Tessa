@@ -199,21 +199,37 @@ module Eval =
         | P.PrimitiveProcedure p -> parsePrimitiveToEvalPrimitive p |> PrimitiveProcedure |> Ok
         | P.Quote q -> Ok <| Quote q
 
+    type StackAction = 
+        | BeginNewStack
+        | ReturnNewStack
+        | Expression of P.Word 
+        | EndStack
+        | ReduceAndPushOp of P.PrimitiveProcedure option
+
+    let flattenParseStackCommands commands = 
+        let rec flatten command = 
+            match command with 
+            // oof that append at the end is horribly inefficient
+            | P.NewStack cs -> BeginNewStack :: (List.collect flatten cs) @ [ReturnNewStack]
+            | P.Expression word -> [Expression word]
+            | P.ReduceAndPushOp(x) -> [ReduceAndPushOp x]
+            | P.EndStack -> [EndStack]
+        List.collect flatten commands
+
     let evalStackCommand context stackCommand = 
         match stackCommand with 
-        // 
-        | P.BeginNewStack -> 
+        | BeginNewStack -> 
             let current = context.currentContext
             let top = {emptyStackExecutionContext with environment = current.environment}
             Ok <| {context with currentContext = top; continuations = current :: context.continuations;}
-        | P.Expression word -> evalWord context word >>= (fun e -> (liftToExecutionContext (acceptExpression e) context))
+        | Expression word -> evalWord context word >>= (fun e -> (liftToExecutionContext (acceptExpression e) context))
         // continuation pushing . We have a return, now we just need to push it to the before op before us
-        | P.EndStack -> 
+        | EndStack -> 
             monad {
                 let! newStackContext = reduceStack context.currentContext
                 return {context with currentContext = {newStackContext with beforeOp = []; afterOp = []; currentOp = Empty;}}
             }
-        | P.ReduceAndPushOp(maybePrimitive) -> 
+        | ReduceAndPushOp(maybePrimitive) -> 
             match maybePrimitive with
             | Some primitive -> 
                 monad {
@@ -222,7 +238,7 @@ module Eval =
                     return! (liftToExecutionContext (acceptExpression evalPrimitive) acceptingContext)
                 }
             | None -> liftToExecutionContext acceptNextOp context
-        | P.ReturnNewStack -> 
+        | ReturnNewStack -> 
             monad {
                 let! newStackContext = reduceStack context.currentContext
                 let ret = List.tryHead newStackContext.beforeOp
@@ -245,7 +261,7 @@ module Eval =
                 let! newContext = evalStackCommand context command
                 return! go newContext rest
             }
-        go emptyExecutionContext stackCommands
+        go emptyExecutionContext (flattenParseStackCommands stackCommands)
 
             
 
