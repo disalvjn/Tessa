@@ -5,6 +5,7 @@ open FSharp.Collections
 open Tessa.Language 
 open Tessa.Util
 open System.Collections.Generic
+open FSharpPlus
 
 // todo: Split into more submodules. Solve.Types, Solve.Line (for line solver) etc.?
 module Solve =
@@ -126,7 +127,7 @@ module Solve =
             | Some(Straight(orig, dest) as segment) -> Ok <| getOnSegment segment orig dest
 
     let solveLinePerpendicular (location: Location) (segmentChain: SegmentChain) = 
-        Result.result {
+        monad {
             let! segmentPoint = pointOnSegmentChain segmentChain location
             return 
                 match segmentPoint with
@@ -206,7 +207,7 @@ module Solve =
             match segment with
             | Straight(orig, dest) -> pointBoundedBy point orig dest
 
-        let segmentsIntersect s1 s2 =  Result.fromOk None <| Result.result {
+        let segmentsIntersect s1 s2 =  Result.fromOk None <| monad {
             let! extend1 = solveLineExtendSegment [s1]
             let! extend2 = solveLineExtendSegment [s2] 
             let! intersect = solvePointLineIntersect extend1 extend2
@@ -232,10 +233,9 @@ module Solve =
         search original
 
     let solveSegmentPerpendicular position (origSegment: SegmentChain) (endSegment: SegmentChain) =
-        Result.result {
+        monad {
             let! (_, startPoint) = pointOnSegmentChain origSegment position
             let! perpLine = solveLinePerpendicular position origSegment
-            let (>>=) x f = Result.bind f x
             let intersectionPoints = 
                 endSegment 
                 |> List.map (fun x -> Ok [x] >>= solveLineExtendSegment >>= (solvePointLineIntersect perpLine))
@@ -265,17 +265,28 @@ module Solve =
         let (_, lastPointInChain) = origDest <| List.last chain
         chain @ [Straight(lastPointInChain, point)]
 
-    type SolveContext = {PointContext: Map<L.Point, Point>; SegmentContext: Map<L.Segment, SegmentChain>; LineContext: Map<L.Line, Line>}
+    type SolveContext = 
+        {PointContext: Map<L.Point, Result<Point, SolveError>>; 
+        SegmentContext: Map<L.Segment, Result<SegmentChain, SolveError>>; 
+        LineContext: Map<L.Line, Result<Line, SolveError>>}
 
-    // let rec solveSegment solvePoint solveLine tryFindSegment returnSegment segment = 
-    //     let go = solveSegment solvePoint solveLine tryFindSegment returnSegment
-    //         // assert last point in 
-    //     match tryFindSegment segment with
-    //         | Some chain -> chain
-    //         | None -> returnSegment segment <| match segment with
-    //             | L.Link(p1, p2) -> Straight(solvePoint p1, solvePoint p2)
-    //             | L.Chain(s, p) 
+    let returnPoint orig solved = 
+        S.state {
+            let! _ = S.update <| fun context -> {context with PointContext = Map.add orig solved context.PointContext}
+            return solved
+        }
 
+    let returnSegment orig solved = 
+        S.state {
+            let! _ = S.update <| fun context -> {context with SegmentContext = Map.add orig solved context.SegmentContext}
+            return solved
+        }
+
+    let returnLine orig solved = 
+        S.state {
+            let! _ = S.update <| fun context -> {context with LineContext = Map.add orig solved context.LineContext}
+            return solved
+        }
 
     let solve (segments: L.Segment list) = 
         let mutable context = {PointContext = Map.empty; SegmentContext = Map.empty; LineContext = Map.empty;}
@@ -292,44 +303,50 @@ module Solve =
             context <- {context with LineContext = Map.add orig solved context.LineContext}
             solved
 
-        let rec solvePoint (lpoint: L.Point) =
-            match Map.tryFind lpoint context.PointContext with
-                | Some p -> p
-                | None -> 
-                    returnPoint lpoint <| 
-                    match lpoint with
-                    | L.Absolute(x, y) as absolute -> {x = x; y = y}
-                    | L.Operated(origin, op) -> 
-                        match op with
-                        | L.Rotate(direction, angle, center) -> rotateAround (solvePoint origin) (solvePoint center) direction angle
-                        | L.GlideAround(_) -> failwith "get to this later"
-                    | L.OnSegment(L.PointOnSegment(position, segment)) -> pointOnSegmentChain (solveSegment segment) position |> snd 
-                    // todo: should I be using Result based error handling in here? I don't see why I should plumb inside when I could catch on the outside
-                    // and maintain a pure interface
-                    | L.Intersection(line1, line2) -> solvePointLineIntersect (solveLine line1) (solveLine line2) |> okay
+        // todo: Improve these errors by adding additional context
+        let rec solvePoint (lpoint: L.Point) : Result<Point, SolveError> =
+            let found =
+                match Map.tryFind lpoint context.PointContext with
+                    | Some p -> p
+                    | None -> 
+                        match lpoint with
+                        | L.Absolute(x, y) as absolute -> Ok {x = x; y = y}
+                        | L.Operated(origin, op) -> 
+                            match op with
+                            | L.Rotate(direction, angle, center) -> Result.bind2 (solvePoint origin) (solvePoint center) (fun o c -> Ok <| rotateAround o c direction angle)
+                            | L.GlideAround(_) -> failwith "get to this later"
+                        | L.OnSegment(L.PointOnSegment(position, segment)) -> solveSegment segment >>= fun s -> pointOnSegmentChain s position |> Result.map snd
+                        // todo: should I be using Result based error handling in here? I don't see why I should plumb inside when I could catch on the outside
+                        // and maintain a pure interface
+                        | L.Intersection(line1, line2) -> Result.bind2 (solveLine line1) (solveLine line2) solvePointLineIntersect
+            returnPoint lpoint found
 
-        and solveSegment (segment: L.Segment) : SegmentChain = 
-            match Map.tryFind segment context.SegmentContext with
-                | Some chain -> chain
-                | None -> 
-                    returnSegment segment <| 
-                    match segment with
-                    | L.Link(p1, p2) -> [Straight(solvePoint p1, solvePoint p2)]
-                    | L.Chain(s, p) -> extendSegmentToPoint (solveSegment s) (solvePoint p)
-                    | L.Concat(s1, s2) -> mergeSegmentChains (solveSegment s1) (solveSegment s2) |> okay
-                    | L.Perpendicular(position, originSegment, endSegment) -> [solveSegmentPerpendicular position (solveSegment originSegment) (solveSegment endSegment)]
-                    | L.Snipped(orig, cutAt) -> solveSegmentSnipped (solveSegment orig) (solveSegment cutAt)
+        and solveSegment (segment: L.Segment) : Result<SegmentChain, SolveError> = 
+            let found = 
+                match Map.tryFind segment context.SegmentContext with
+                    | Some chain -> chain
+                    | None -> 
+                        match segment with
+                        | L.Link(p1, p2) -> Result.bind2 (solvePoint p1) (solvePoint p2) (fun p1r p2r -> Ok <| [Straight(p1r, p2r)])
+                        | L.Chain(s, p) -> Result.bind2 (solveSegment s) (solvePoint p) (fun sr pr -> Ok <| extendSegmentToPoint sr pr)
+                        | L.Concat(s1, s2) -> Result.bind2 (solveSegment s1) (solveSegment s2) mergeSegmentChains 
+                        | L.Perpendicular(position, originSegment, endSegment) -> 
+                            Result.bind2 (solveSegment originSegment) (solveSegment endSegment) (fun o e -> Result.map (fun x -> [x]) <| solveSegmentPerpendicular position o e)
+                        | L.Snipped(orig, cutAt) -> Result.bind2 (solveSegment orig) (solveSegment cutAt) (fun o c -> Ok <| solveSegmentSnipped o c)
+            returnSegment segment found
 
-        and solveLine (line: L.Line) : Line = 
-            match Map.tryFind line context.LineContext with 
-                | Some l -> l 
-                | None ->
-                    returnLine line <|
-                    match line with
-                    | L.Line.Perpendicular(pos, segment) -> solveLinePerpendicular pos (solveSegment segment)
-                    | L.VerticalThroughX(x, segment) -> solveLineVerticalThroughX x (solveSegment segment)
-                    | L.HorizontalThroughY(y, segment) -> solveLineHorizontalThroughY y (solveSegment segment)
-                    | L.ExtendSegment(segment) -> solveLineExtendSegment (solveSegment segment) |> okay
+        and solveLine (line: L.Line) : Result<Line, SolveError> = 
+            let found = 
+                match Map.tryFind line context.LineContext with 
+                    | Some l -> l 
+                    | None ->
+                        returnLine line <|
+                        match line with
+                        | L.Line.Perpendicular(pos, segment) -> solveSegment segment >>= solveLinePerpendicular pos 
+                        | L.VerticalThroughX(x, segment) -> solveSegment segment >>= solveLineVerticalThroughX x 
+                        | L.HorizontalThroughY(y, segment) -> solveSegment segment >>= solveLineHorizontalThroughY y 
+                        | L.ExtendSegment(segment) -> solveSegment segment >>= solveLineExtendSegment 
+            returnLine line found
 
         List.map solveSegment segments
 

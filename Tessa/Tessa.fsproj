@@ -11,4 +11,7 @@
     <Compile Include="src/Eval.fs" />
     <Compile Include="src/Program.fs" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharpPlus" Version="1.1.0" />
+  </ItemGroup>
 </Project>

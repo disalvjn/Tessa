@@ -2,6 +2,7 @@ namespace Tessa.Util
 
 open System
 open FSharp.Collections
+open FSharpPlus
 
 module Util =
    let rec okays list = 
@@ -19,39 +20,51 @@ module Util =
       | [] -> []
       | Some s :: rest -> s :: somes rest 
       | None :: rest -> somes rest
-
    let cons x y = x :: y
 
-   // type Either<'l, 'r> = 
-   //    | Left of 'l
-   //    | Right of 'r
-   //    static member Bind (x, f) = 
-   //       match x with
-   //       | Left l -> Left l
-   //       | Right r -> f r
+   // let bind2 x y f = monad {
+   //    let! xb = x
+   //    let! yb = y
+   //    return! f x y}
 
-   let inline (>>=) (x:'ma) (f:'a -> 'mb) = (^ma: (static member Bind: 'ma * ('a -> 'mb) -> 'mb) (x, f))
 
 // http://matthewmanela.com/blog/functional-stateful-program-in-f/
 module State = 
-   type StateData<'st, 'a> =
+   type StateData<'st, 'a, 'e> =
       | Ok of 'a * 'st
-      | Error of string 
+      | Error of 'e
 
-   type State<'st, 'a> = 'st -> StateData<'st, 'a>
+   type State<'st, 'a, 'e> = 'st -> StateData<'st, 'a, 'e>
 
    and StateBuilder() = 
-      member b.Return(x) : State<'st, 'a> = fun s -> Ok(x, s)
+      member b.Return(x) : State<'st, 'a, 'e> = fun s -> Ok(x, s)
       member b.ReturnFrom(x) = x
-      member b.Error msg : State<'st, 'a> = fun _ -> Error msg
-      member b.Bind(f: 'a -> State<'st, 'b>, x: State<'st, 'a>) : State<'st, 'b>= 
+      member b.Error msg  : State<'st, 'a, 'e> = fun _ -> Error msg
+      member b.Bind(f, x) = 
        fun state ->
-         let result = x state in
+         let result = f state in
          match result with
-            | Ok (value, state2) -> f value state2
+            | Ok (value, state2) -> x value state2
             | Error e -> Error e
-      member b.Get() = fun state -> Ok (state, state)
-      member b.Put s = fun state -> Ok((), s)
+
+   let state = StateBuilder()
+
+   let get () = fun state -> Ok (state, state)
+   let put s = fun state -> Ok((), s)
+
+   let update f = 
+      state {
+         let! s = get ()
+         do! put (f s)
+         return! get ()
+      }
+
+   let lift (result: Result<'a, 'e>) : State<'st, 'a, 'e> = 
+      fun state -> 
+         match result with
+            | Result.Ok o -> Ok(o, state)
+            | Result.Error e -> Error e
+
 
 module Result = 
    let bimap ok error = function
@@ -88,12 +101,6 @@ module Result =
          | Ok o -> f o
          | Error e -> Error e
 
-   type Result<'a, 'b> with
-      static member Bind (x, f) = 
-         match x with
-         | Error l -> Error l
-         | Ok r -> f r
-   
    let result = ResultBuilder ()
 
 
