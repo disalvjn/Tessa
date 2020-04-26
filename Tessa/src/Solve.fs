@@ -6,13 +6,13 @@ open Tessa.Language
 open Tessa.Util
 open System.Collections.Generic
 open FSharpPlus
+open FSharpPlus.Data
 
 // todo: Split into more submodules. Solve.Types, Solve.Line (for line solver) etc.?
 module Solve =
     module L = Language
     open Util
-    module S = State
-    let state = S.state
+    module State = FSharpPlus.Data.State
 
     type Point = {x: double; y: double;}
     // https://stackoverflow.com/a/26565842/10558918
@@ -272,45 +272,57 @@ module Solve =
         LineContext: Map<L.Line, Result<Line, SolveError>>}
 
     let returnPoint orig solved = 
-        state {
-            let! _ = state.Update <| fun context -> {context with PointContext = Map.add orig solved context.PointContext}
+        monad {
+            let! _ = State.modify <| fun context -> {context with PointContext = Map.add orig solved context.PointContext}
             return solved
         }
 
     let returnSegment orig solved = 
-        state {
-            let! _ = state.Update <| fun context -> {context with SegmentContext = Map.add orig solved context.SegmentContext}
+        monad {
+            let! _ = State.modify <| fun context -> {context with SegmentContext = Map.add orig solved context.SegmentContext}
             return solved
         }
 
     let returnLine orig solved = 
-        state {
-            let! _ = state.Update <| fun context -> {context with LineContext = Map.add orig solved context.LineContext}
+        monad {
+            let! _ = State.modify <| fun context -> {context with LineContext = Map.add orig solved context.LineContext}
             return solved
         }
 
-    let stateResultBind2 x y f =  state.Bind2 x y (fun sx sy -> state.Return <| Result.bind2 sx sy f)
-    let stateResultBind x f =  state.Bind(x, (fun sx -> state.Return <| Result.bind f sx))
+    let stateResultBind2 
+        (x: State<SolveContext, Result<'a, 'e>>) 
+        (y: State<SolveContext, Result<'b, 'e>>) 
+        (f: 'a -> 'b -> Result<'c, 'e>) : State<SolveContext, Result<'c, 'e>> =  
+        monad {
+            let! xs = x 
+            let! ys = y
+            return Result.bind2 xs ys f
+        } 
 
-    let solve (segments: L.Segment list) initContext = 
+    
+
+    let stateResultBind x f =  map (fun sx -> sx >>= f) x
+
+    type SolveResult = (Result<SegmentChain,SolveError> list) * (Result<Point, SolveError> list) * SolveContext
+
+    let solve initContext ((segments: L.Segment list), (points: L.Point list)) : SolveResult =
         // todo: Improve these errors by adding additional context
-        // todo: Separate maps for success and failure or no?
-        let rec solvePoint (lpoint: L.Point) : S.State<SolveContext, Result<Point, SolveError>, string> = 
-            state {
-                let! context = state.Get ()
+        let rec solvePoint (lpoint: L.Point) : State<SolveContext, Result<Point, SolveError>> = 
+            monad {
+                let! context = State.get 
                 let! found =
                     match Map.tryFind lpoint context.PointContext with
-                        | Some result -> state.Return result
+                        | Some r -> result r
                         | None -> 
                             match lpoint with
-                            | L.Absolute(x, y) -> state.Return <| Ok {x = x; y = y}
+                            | L.Absolute(x, y) -> result <| Ok {x = x; y = y}
                             | L.Operated(origin, op) -> 
                                 match op with
                                 | L.Rotate(direction, angle, center) -> 
                                     stateResultBind2 (solvePoint origin) (solvePoint center) (fun ro rc -> Ok <| rotateAround ro rc direction angle)
-                                | L.GlideAround(_) -> state.Error "No support yet for GlideAround operation"
+                                | L.GlideAround(_) -> failwith "No support yet for GlideAround operation"
                             | L.OnSegment(L.PointOnSegment(position, segment)) -> 
-                                state {
+                                monad {
                                     let! solvedSeg = solveSegment segment
                                     return solvedSeg >>= pointOnSegmentChain position |> Result.map snd 
                                 }
@@ -319,12 +331,12 @@ module Solve =
                 return! returnPoint lpoint found
             }
 
-        and solveSegment (segment: L.Segment) : S.State<SolveContext, Result<SegmentChain, SolveError>, string> = 
-            state {
-                let! context = state.Get ()
+        and solveSegment (segment: L.Segment) : State<SolveContext, Result<SegmentChain, SolveError>> = 
+            monad {
+                let! context = State.get 
                 let! found = 
                     match Map.tryFind segment context.SegmentContext with
-                        | Some chain -> state.Return chain
+                        | Some chain -> result chain
                         | None -> 
                             match segment with
                             | L.Link(p1, p2) -> 
@@ -340,12 +352,12 @@ module Solve =
                 return! returnSegment segment found
             }
 
-        and solveLine (line: L.Line) : S.State<SolveContext, Result<Line, SolveError>, string> = 
-            state {
-                let! context = state.Get ()
+        and solveLine (line: L.Line) : State<SolveContext, Result<Line, SolveError>> = 
+            monad {
+                let! context = State.get 
                 let! found = 
                     match Map.tryFind line context.LineContext with 
-                        | Some l -> state.Return l 
+                        | Some l -> result l 
                         | None ->
                             match line with
                             | L.Line.Perpendicular(pos, segment) -> stateResultBind (solveSegment segment) <| solveLinePerpendicular pos
@@ -355,4 +367,12 @@ module Solve =
                 return! returnLine line found
             }
 
-        List.map solveSegment segments
+        let solveAll : State<SolveContext, SolveResult> =
+            monad {
+                let! segs = sequence <| map solveSegment segments
+                let! ps = sequence <| map solvePoint points
+                let! finalState = State.get
+                return (segs, ps, finalState)
+            } // List.map solveSegment segments
+
+        State.eval solveAll initContext
