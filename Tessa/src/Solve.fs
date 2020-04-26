@@ -305,7 +305,7 @@ module Solve =
 
     type SolveResult = (Result<SegmentChain,SolveError> list) * (Result<Point, SolveError> list) * SolveContext
 
-    let solve initContext ((segments: L.Segment list), (points: L.Point list)) : SolveResult =
+    let solve ((segments: L.Segment list), (points: L.Point list)) initContext : SolveResult =
         // todo: Improve these errors by adding additional context
         let rec solvePoint (lpoint: L.Point) : State<SolveContext, Result<Point, SolveError>> = 
             monad {
@@ -373,6 +373,6 @@ module Solve =
                 let! ps = sequence <| map solvePoint points
                 let! finalState = State.get
                 return (segs, ps, finalState)
-            } // List.map solveSegment segments
+            }
 
         State.eval solveAll initContext
