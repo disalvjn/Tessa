@@ -27,7 +27,6 @@ module Parse =
         | Identifier of string
         | Number of float
         | PrimitiveProcedure of PrimitiveProcedure
-        | Symbol of string
         | Quote of StackCommand
 
     and StackCommand =
