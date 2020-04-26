@@ -70,6 +70,7 @@ module Parse =
             | Lex.Identifier i -> recurse (Expression <| Identifier i) rest
             | Lex.Fraction (numer, denom) -> recurse ((float numer) / (float denom) |> Number |> Expression) rest
             | Lex.PrimitiveProc pp -> recurse (tokenToPrimitive pp |> PrimitiveProcedure |> Expression) rest
+            | Lex.WhiteSpace -> parse rest
             | Lex.QuotePrimitive -> recurse (Quote |> PrimitiveProcedure |> Expression) rest
         | [] -> Ok []
     

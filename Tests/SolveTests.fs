@@ -85,7 +85,7 @@ module SolveTests =
         
         Assert.Equal(fromResult <| S.pointOnSegmentChain 0.25 chain, (s1, {S.Point.x = 2.0; S.Point.y = 0.0;}))
 
-        Assert.Equal(fromResult <| S.pointOnSegmentChain 0.5 chain, (s2, {S.Point.x = 4.0; S.Point.y = 0.0;}))
+        Assert.Equal(fromResult <| S.pointOnSegmentChain 0.5 chain, (s3, {S.Point.x = 4.0; S.Point.y = 0.0;}))
 
         Assert.Equal(fromResult <| S.pointOnSegmentChain 0.75 chain, (s4, {S.Point.x = 6.0; S.Point.y = 0.0;}))
 
