@@ -30,6 +30,8 @@ module Util =
       | None -> list 
       | Some s -> s :: list
 
+   let failAndPrint a = failwith (sprintf "%A" a)
+
 // http://matthewmanela.com/blog/functional-stateful-program-in-f/
 
 module Result = 

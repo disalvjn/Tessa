@@ -14,34 +14,36 @@ module Eval =
     open Util
 
     type PrimitiveProcedure = 
-        // | ArrayBuilder 
-        // | RecordBuilder 
-        // | LinkPoints 
-        // | Perpendicular 
-        // | Intersect 
-        // | At 
-        // | ApplyOp 
-        // | Assign
-        // | RecordAccess
-        // | Snip
-        // | Draw
-        // | Lambda
-        // // has optional assignment semantics also! more convenient.
-        // | CellBuild
-        // | Quote
+        | ArrayBuilder 
+        | RecordBuilder 
+        | LinkPoints 
+        | Perpendicular 
+        | Intersect 
+        | At 
+        | ApplyOp 
+        | Assign
+        | RecordAccess
+        | Snip
+        | Draw
+        | Lambda
+        // has optional assignment semantics also! more convenient.
+        | CellBuild
+        | Quote
         | AddNumber
 
     // todo: Need to pipe Lex pos into Parse so I can add positions here
     type EvalError =
-        | UndefinedVariable of string 
+        | UndefinedVariable of var: string * message: string
         | AddingNonNumbers of Exp list
         | ApplyingNonFunction of Exp
         | UnbalancedParenExtraClose
+        | AssignError
 
     and Exp =
         | Number of float
         | Identifier of string
         | PrimitiveProcedure of PrimitiveProcedure
+        | Symbol of string
         // | Lambda
         // | Record
         // | LanguageExp of LanguageExp
@@ -92,19 +94,45 @@ module Eval =
         // have a Solve function to seemlessly evaluate 
     }
 
-    type PrimitiveProcedureFn = (Exp list) -> (Exp list) -> Result<Exp, EvalError>
+    type Environment = Map<string, Exp>
+    type PrimitiveProcedureFn = (Exp list) -> (Exp list) -> Result<Exp * Environment, EvalError>
+
+    let parsePrimitiveToEvalPrimitive = function
+        | P.Assign -> Assign
+        | P.ArrayBuilder -> ArrayBuilder
+        | P.RecordBuilder -> RecordBuilder
+        | P.LinkPoints -> LinkPoints
+        | P.Perpendicular -> Perpendicular
+        | P.Intersect -> Intersect
+        | P.At -> At
+        | P.ApplyOp -> ApplyOp
+        | P.Snip -> Snip
+        | P.RecordAccess -> RecordAccess
+        | P.Draw -> Draw
+        | P.Lambda -> Lambda
+        | P.CellBuild -> CellBuild
+        | P.Quote -> Quote
 
     // Primitive procedures
     // todo: many of these will have to reverse the lists first in order to sensibly apply
-    let addNumber before after =
+    let addNumber before after env =
         let everything = before @ after
         let numbers = List.map toNumber everything
         let errs = errors numbers
         let oks = okays numbers
-        if not (List.isEmpty errs) then Error <| AddingNonNumbers errs else List.sum oks |> Number |> Ok
+
+        if not (List.isEmpty errs) 
+        then Error <| AddingNonNumbers errs 
+        else Ok(List.sum oks |> Number, env) 
+
+    let assign before after env = 
+        match (before, after) with 
+        | ([Symbol i], [a]) -> Ok(a, Map.add i a env)
+        | _ -> Error AssignError // todo: could make this a lot more specific
 
     let lookupPrimitiveProcedure = function
         | AddNumber -> addNumber
+        | Assign -> assign
 
     let startingEnvironment = 
         Map.empty 
@@ -139,14 +167,14 @@ module Eval =
 
     let reduceStack context = 
         match context.currentOp with 
-            | Empty -> Ok {context with currentOp = Empty; beforeOp = []; afterOp = []}
-            | EmptyAcceptNext -> Ok {context with currentOp = Empty; beforeOp = [];afterOp = []}
+            | Empty -> Ok {context with currentOp = Empty; beforeOp = []; afterOp = []; ret = List.tryHead context.beforeOp;}
+            | EmptyAcceptNext -> Ok {context with currentOp = Empty; beforeOp = [];afterOp = []; ret = List.tryHead context.beforeOp;}
             | Op o -> 
                 match o with 
                 | Primitive p -> monad {
                     let fn = lookupPrimitiveProcedure p
-                    let! applied = fn context.beforeOp context.afterOp
-                    let newStack = {context with beforeOp = [applied]; afterOp = []; currentOp = Empty}
+                    let! (applied, newEnv) = fn context.beforeOp context.afterOp context.environment
+                    let newStack = {context with beforeOp = [applied]; afterOp = []; currentOp = Empty; environment = newEnv; ret = Some applied;}
                     return newStack
                 }
 
@@ -163,14 +191,15 @@ module Eval =
 
     let findIdentifier execContext ident = 
         match Map.tryFind ident execContext.currentContext.environment with
-            | None -> Error <| UndefinedVariable ident
+            | None -> Error <| UndefinedVariable(ident, "If you meant to assign, assign to a symbol.")
             | Some exp -> Ok exp
 
     let rec evalWord context exp  =
         match exp with
         | P.Number n -> Ok <| Number n
         | P.Identifier ident -> findIdentifier context ident 
-            // | P.PrimitiveProcedure p -> 
+        | P.PrimitiveProcedure p -> parsePrimitiveToEvalPrimitive p |> PrimitiveProcedure |> Ok
+        | P.Symbol i -> Ok <| Symbol i
 
     let evalStackCommand context stackCommand = 
         match stackCommand with 
@@ -184,12 +213,16 @@ module Eval =
         | P.EndStack -> 
             monad {
                 let! newStackContext = reduceStack context.currentContext
-                let ret = List.tryHead newStackContext.beforeOp
-                return {context with currentContext = {emptyStackExecutionContext with ret = ret}}
+                return {context with currentContext = {newStackContext with beforeOp = []; afterOp = []; currentOp = Empty;}}
             }
         | P.ReduceAndPushOp(maybePrimitive) -> 
             match maybePrimitive with
-            | Some _ -> Ok context 
+            | Some primitive -> 
+                monad {
+                    let! acceptingContext = liftToExecutionContext acceptNextOp context
+                    let evalPrimitive = parsePrimitiveToEvalPrimitive primitive |> PrimitiveProcedure
+                    return! (liftToExecutionContext (acceptExpression evalPrimitive) acceptingContext)
+                }
             | None -> liftToExecutionContext acceptNextOp context
         | P.ReturnNewStack -> 
             monad {

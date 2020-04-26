@@ -27,6 +27,7 @@ module Parse =
         | Identifier of string
         | Number of float
         | PrimitiveProcedure of PrimitiveProcedure
+        | Symbol of string
 
     and StackCommand =
         | ReduceAndPushOp of PrimitiveProcedure option
@@ -59,6 +60,8 @@ module Parse =
         match tokens with
         | Lex.QuotePrimitive :: (Lex.PrimitiveProc t) :: rest ->
             recurse ((tokenToPrimitive t) |> PrimitiveProcedure |> Expression) rest
+        | Lex.QuotePrimitive :: (Lex.Identifier i) :: rest ->
+            recurse (Symbol i |> Expression) rest
         | t :: rest ->
             // match tokenToPrimitive t with
             // | Some primitive -> recurse (Some primitive |> ReduceAndPushOp) rest
@@ -70,7 +73,7 @@ module Parse =
             | Lex.EndNestedExpression -> recurse ReturnNewStack rest
             | Lex.Identifier i -> recurse (Expression <| Identifier i) rest
             | Lex.Fraction (numer, denom) -> recurse ((float numer) / (float denom) |> Number |> Expression) rest
-            | Lex.PrimitiveProc pp -> recurse (tokenToPrimitive pp |> PrimitiveProcedure |> Expression) rest
+            | Lex.PrimitiveProc pp -> recurse (tokenToPrimitive pp |> Some |> ReduceAndPushOp) rest
             | Lex.WhiteSpace -> parse rest
             | Lex.QuotePrimitive -> recurse (Quote |> PrimitiveProcedure |> Expression) rest
         | [] -> Ok []
