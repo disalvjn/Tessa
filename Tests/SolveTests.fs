@@ -11,6 +11,10 @@ module SolveTests =
     module L = Language
     open Util
 
+    let fromResult = function
+        | Error e -> failwith (sprintf "%A" e)
+        | Ok o -> o
+
     let AssertPointEqual (actual: S.Point) (expected: S.Point) =
         let eps = 0.01
         Assert.InRange(actual.x, expected.x - eps, expected.x + eps)
@@ -19,6 +23,7 @@ module SolveTests =
     let AssertSegmentEqual (S.Straight(orig, dest)) (S.Straight(orig2, dest2)) =
         AssertPointEqual orig orig2
         AssertPointEqual dest dest2
+
 
     let p x y = {S.x = x; S.y = y;}
 
@@ -32,43 +37,43 @@ module SolveTests =
     let ``solveLineVerticalThroughX on Straight Segment`` () =
         let segment = S.Straight({x= 0.0; y = 0.0;}, {x = 1.0; y = 1.0;})
         let solved = S.solveLineVerticalThroughX 0.5 [segment]
-        Assert.Equal(S.Vertical(0.5), solved)
+        Assert.Equal(Ok <| S.Vertical(0.5), solved)
 
     [<Fact>]
     let ``solveLineHorizontalThroughY on Straight Segment`` () =
         let segment = S.Straight({x= 0.0; y = 0.0;}, {x = 1.0; y = 1.0;})
         let solved = S.solveLineHorizontalThroughY 0.5 [segment]
-        Assert.Equal(S.Sloped({x = 0.5; y = 0.5;}, 0.0), solved)
+        Assert.Equal(Ok <| S.Sloped({x = 0.5; y = 0.5;}, 0.0), solved)
 
     [<Fact>]
     let ``solveLineExtendSegment Vertical Straight Segment`` () =
         let segment = S.Straight({x = 0.0; y = 0.0;}, {x = 0.0; y = 10.0;})
-        let solved = S.solveLineExtendSegment [segment] |> okay
-        Assert.Equal(S.Vertical(0.0), solved)
+        let solved = S.solveLineExtendSegment [segment]
+        Assert.Equal(Ok <| S.Vertical(0.0), solved)
 
     [<Fact>]
     let ``solveLineExtendSegment Sloped Straight Segment`` () =
         let segment = S.Straight({x = 0.0; y = 0.0;}, {x = 1.0; y = 2.0;})
-        let solved = S.solveLineExtendSegment [segment] |> okay
-        Assert.Equal(S.Sloped({x = 0.0; y = 0.0;}, 2.0), solved)
+        let solved = S.solveLineExtendSegment [segment]
+        Assert.Equal(Ok <| S.Sloped({x = 0.0; y = 0.0;}, 2.0), solved)
 
     [<Fact>]
     let ``solveLinePerpendicular Sloped Straight Segment`` () = 
         let segment = S.Straight({x = 0.0; y = 0.0;}, {x = 1.0; y = 2.0;})
         let solved = S.solveLinePerpendicular 0.5 [segment]
-        Assert.Equal(S.Sloped({x = 0.5; y = 1.0;}, -1.0/2.0), solved)
+        Assert.Equal(Ok <| S.Sloped({x = 0.5; y = 1.0;}, -1.0/2.0), solved)
 
     [<Fact>]
     let ``solveLinePerpendicular Vertical Straight Segment`` () =
         let segment = S.Straight({x = 0.0; y = 0.0;}, {x = 0.0; y = 10.0;})
         let solved = S.solveLinePerpendicular 0.7 [segment]
-        Assert.Equal(S.Sloped({x = 0.0; y = 7.0;}, 0.0), solved)
+        Assert.Equal(Ok <| S.Sloped({x = 0.0; y = 7.0;}, 0.0), solved)
 
     [<Fact>]
     let ``solveLinePerpendicular Horizontal Straight Segment`` () =
         let segment = S.Straight({x = 0.0; y = 0.0;}, {x = 10.0; y = 0.0;})
         let solved = S.solveLinePerpendicular 0.7 [segment]
-        Assert.Equal(S.Vertical(7.0), solved)
+        Assert.Equal(Ok <| S.Vertical(7.0), solved)
 
     [<Fact>]
     let ``pointOnSegmentChain`` () =
@@ -76,29 +81,17 @@ module SolveTests =
         let s1, s2, s3, s4, s5 = segment (0, 0) (2, 0), segment (2, 0) (3, 0), segment (3, 0) (5, 0), segment (5, 0) (7, 0), segment (7, 0) (8, 0)
         let chain = [s1; s2; s3; s4; s5]
 
-        let (as1, p1) = S.pointOnSegmentChain chain 0.0
-        Assert.Equal({S.Point.x = 0.0; S.Point.y = 0.0;}, p1)
-        Assert.Equal(s1, as1)
+        Assert.Equal(fromResult <| S.pointOnSegmentChain 0.0 chain, (s1, {S.Point.x = 0.0; S.Point.y = 0.0;}))
+        
+        Assert.Equal(fromResult <| S.pointOnSegmentChain 0.25 chain, (s1, {S.Point.x = 2.0; S.Point.y = 0.0;}))
 
-        let (as2, p2) = S.pointOnSegmentChain chain 0.25
-        Assert.Equal({S.Point.x = 2.0; S.Point.y = 0.0;}, p2)
-        Assert.Equal(s1, as2)
+        Assert.Equal(fromResult <| S.pointOnSegmentChain 0.5 chain, (s2, {S.Point.x = 4.0; S.Point.y = 0.0;}))
 
-        let (as3, p3) = S.pointOnSegmentChain chain 0.5
-        Assert.Equal({S.Point.x = 4.0; S.Point.y = 0.0;}, p3)
-        Assert.Equal(s3, as3)
+        Assert.Equal(fromResult <| S.pointOnSegmentChain 0.75 chain, (s4, {S.Point.x = 6.0; S.Point.y = 0.0;}))
 
-        let (as4, p4) = S.pointOnSegmentChain chain 0.75
-        Assert.Equal({S.Point.x = 6.0; S.Point.y = 0.0;}, p4)
-        Assert.Equal(s4, as4)
+        Assert.Equal(fromResult <| S.pointOnSegmentChain 1.0 chain, (s5, {S.Point.x = 8.0; S.Point.y = 0.0;}))
 
-        let (as5, p5) = S.pointOnSegmentChain chain 1.0
-        Assert.Equal({S.Point.x = 8.0; S.Point.y = 0.0;}, p5)
-        Assert.Equal(s5, as5)
-
-        let (as6, p6) = S.pointOnSegmentChain chain 2.0
-        Assert.Equal({S.Point.x = 16.0; S.Point.y = 0.0;}, p6)
-        Assert.Equal(s5, as6)
+        Assert.Equal(fromResult <| S.pointOnSegmentChain 2.0 chain, (s5, {S.Point.x = 16.0; S.Point.y = 0.0;}))
 
     [<Fact>]
     let ``Rotate around point`` () =
@@ -118,9 +111,6 @@ module SolveTests =
 
     [<Fact>]
     let ``Solve Point at Intersection of Lines`` () =
-        let fromResult = function
-            | Error e -> failwith e
-            | Ok o -> o
         let verticalThrough1 = S.Vertical(1.0)
         let upDiag = S.Sloped(p 0.0 0.0, 1.0)
         let downDiag = S.Sloped(p 0.0 0.0, -1.0)
@@ -158,8 +148,8 @@ module SolveTests =
         let perpTo1 = S.solveSegmentPerpendicular 0.5 beginFrom snipTo1
         let perpTo2 = S.solveSegmentPerpendicular 0.5 beginFrom snipTo2
 
-        AssertSegmentEqual perpTo1 <| S.Straight(p 0.0 1.0, p 0.0 5.0)
-        AssertSegmentEqual perpTo2 <| S.Straight(p 0.0 1.0, p 0.0 0.0)
+        AssertSegmentEqual (fromResult perpTo1) <| S.Straight(p 0.0 1.0, p 0.0 5.0)
+        AssertSegmentEqual (fromResult perpTo2) <| S.Straight(p 0.0 1.0, p 0.0 0.0)
 
 
         

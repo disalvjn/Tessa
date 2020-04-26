@@ -11,10 +11,6 @@ module Util =
      | Ok o :: rest -> o :: okays rest
      | Error _ :: rest -> okays rest
 
-   let rec okay = function
-      | Ok o -> o
-      | Error e -> failwith e
-
    let rec somes list =
       match list with
       | [] -> []
