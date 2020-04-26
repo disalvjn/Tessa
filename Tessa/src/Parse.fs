@@ -1,6 +1,7 @@
 namespace Tessa.Parse
 open Tessa.Lex
 open Tessa.Util
+open FSharpPlus
 
 module Parse = 
     module Lex = Lex
@@ -19,62 +20,75 @@ module Parse =
         | Snip
         | Draw
         | Lambda
-        // has optional assignment semantics also! more convenient.
+        // has optional assignment semantics also! more convenient. e.g. (<#> ( a + b !))
         | CellBuild
-        | Quote
 
     type Word = 
         | Identifier of string
         | Number of float
         | PrimitiveProcedure of PrimitiveProcedure
         | Symbol of string
+        | Quote of StackCommand
 
     and StackCommand =
         | ReduceAndPushOp of PrimitiveProcedure option
-        | BeginNewStack
-        | ReturnNewStack
+        | NewStack of StackCommand list
         | EndStack
         | Expression of Word
 
-    type ParseError = {message: string}
+    type ParseError = 
+        | ExtraEndingParen
 
-    let rec parse tokens =
-        let recurse this rest = 
-            Result.bind (Ok << cons this) (parse rest)
-        let tokenToPrimitive (procToken : Lex.PrimitiveProcToken) : PrimitiveProcedure = 
-            match procToken with
-            | Lex.ArrayBuilder -> ArrayBuilder
-            | Lex.RecordBuilder -> RecordBuilder
-            | Lex.LinkPoints -> LinkPoints
-            | Lex.Perpendicular -> Perpendicular
-            | Lex.Intersect -> Intersect
-            | Lex.At -> At
-            | Lex.ApplyOp -> ApplyOp
-            | Lex.Assign -> Assign
-            | Lex.Snip -> Snip
-            | Lex.RecordAccess -> RecordAccess
-            | Lex.Draw -> Draw
-            | Lex.Lambda -> Lambda
-            | Lex.CellBuilder -> CellBuild
-        let t = List.Cons >> Ok
+    let rec parseList allTokens = 
+        match allTokens with 
+            | [] -> Ok ([], [])
+            | Lex.EndNestedExpression :: rest -> Ok([], rest)
+            | Lex.BeginNestedExpression :: rest -> 
+                monad {
+                    let! (nested, restRest) = parseList rest
+                    let command = NewStack nested
+                    let! (parsedRest, restRestRest) = parseList restRest 
+                    return (command :: parsedRest, restRestRest)
+                }
+            | rest ->  
+                monad {
+                    let! (parsed, restOfRest) = parse rest
+                    let! (parsedRest, restOfRestOfRest) = parseList restOfRest
+                    return (tryCons parsed parsedRest, restOfRestOfRest)
+                }
+
+    and parse (tokens: Lex.Token list) : Result<(StackCommand option * Lex.Token list), ParseError> = 
         match tokens with
-        | Lex.QuotePrimitive :: (Lex.PrimitiveProc t) :: rest ->
-            recurse ((tokenToPrimitive t) |> PrimitiveProcedure |> Expression) rest
-        | Lex.QuotePrimitive :: (Lex.Identifier i) :: rest ->
-            recurse (Symbol i |> Expression) rest
-        | t :: rest ->
-            // match tokenToPrimitive t with
-            // | Some primitive -> recurse (Some primitive |> ReduceAndPushOp) rest
-            // | None -> 
+        | Lex.QuotePrimitive :: rest -> 
+            monad {
+                let! (nextExpr, restOfRest) = parse rest
+                return (Option.map (Quote >> Expression) nextExpr, restOfRest)
+            }
+        | t :: rest -> 
             match t with
-            | Lex.StackOp -> recurse (ReduceAndPushOp None) rest
-            | Lex.EndStackOps -> recurse EndStack rest
-            | Lex.BeginNestedExpression -> recurse BeginNewStack rest
-            | Lex.EndNestedExpression -> recurse ReturnNewStack rest
-            | Lex.Identifier i -> recurse (Expression <| Identifier i) rest
-            | Lex.Fraction (numer, denom) -> recurse ((float numer) / (float denom) |> Number |> Expression) rest
-            | Lex.PrimitiveProc pp -> recurse (tokenToPrimitive pp |> Some |> ReduceAndPushOp) rest
-            | Lex.WhiteSpace -> parse rest
-            | Lex.QuotePrimitive -> recurse (Quote |> PrimitiveProcedure |> Expression) rest
-        | [] -> Ok []
+            | Lex.StackOp -> Ok (Some <| ReduceAndPushOp None, rest)// Ok ((ReduceAndPushOp None) |> Some, rest)
+            | Lex.EndStackOps -> Ok (Some EndStack, rest)
+            | Lex.Identifier i -> Ok (Identifier i |> Expression |> Some, rest)
+            | Lex.Fraction (numer, denom) -> Ok ((float numer) / (float denom) |> Number |> Expression |> Some, rest)
+            | Lex.PrimitiveProc pp -> Ok (tokenToPrimitive pp |> Some |> ReduceAndPushOp |> Some, rest)
+            | Lex.WhiteSpace -> Ok (NewStack [] |> Some, rest)
+            | Lex.BeginNestedExpression -> parseList rest >>= (fun (parsed, restOfRest) -> Ok (Some <| NewStack parsed, restOfRest))
+            | Lex.EndNestedExpression -> Error ExtraEndingParen
+        | [] -> Ok (None, [])
+
+    and tokenToPrimitive (procToken : Lex.PrimitiveProcToken) : PrimitiveProcedure = 
+        match procToken with
+        | Lex.ArrayBuilder -> ArrayBuilder
+        | Lex.RecordBuilder -> RecordBuilder
+        | Lex.LinkPoints -> LinkPoints
+        | Lex.Perpendicular -> Perpendicular
+        | Lex.Intersect -> Intersect
+        | Lex.At -> At
+        | Lex.ApplyOp -> ApplyOp
+        | Lex.Assign -> Assign
+        | Lex.Snip -> Snip
+        | Lex.RecordAccess -> RecordAccess
+        | Lex.Draw -> Draw
+        | Lex.Lambda -> Lambda
+        | Lex.CellBuilder -> CellBuild
     
