@@ -271,6 +271,8 @@ module Solve =
         SegmentContext: Map<L.Segment, Result<SegmentChain, SolveError>>; 
         LineContext: Map<L.Line, Result<Line, SolveError>>}
 
+    let emptySolveContext = {PointContext = Map.empty; SegmentContext = Map.empty; LineContext = Map.empty;}
+
     let returnPoint orig solved = 
         monad {
             let! _ = State.modify <| fun context -> {context with PointContext = Map.add orig solved context.PointContext}
@@ -298,8 +300,6 @@ module Solve =
             let! ys = y
             return Result.bind2 xs ys f
         } 
-
-    
 
     let stateResultBind x f =  map (fun sx -> sx >>= f) x
 

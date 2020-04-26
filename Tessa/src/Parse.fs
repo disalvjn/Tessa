@@ -31,6 +31,7 @@ module Parse =
     and StackCommand =
         | ReduceAndPushOp of PrimitiveProcedure option
         | BeginNewStack
+        | ReturnNewStack
         | EndStack
         | Expression of Word
 
@@ -66,7 +67,7 @@ module Parse =
             | Lex.StackOp -> recurse (ReduceAndPushOp None) rest
             | Lex.EndStackOps -> recurse EndStack rest
             | Lex.BeginNestedExpression -> recurse BeginNewStack rest
-            | Lex.EndNestedExpression -> recurse EndStack rest
+            | Lex.EndNestedExpression -> recurse ReturnNewStack rest
             | Lex.Identifier i -> recurse (Expression <| Identifier i) rest
             | Lex.Fraction (numer, denom) -> recurse ((float numer) / (float denom) |> Number |> Expression) rest
             | Lex.PrimitiveProc pp -> recurse (tokenToPrimitive pp |> PrimitiveProcedure |> Expression) rest

@@ -11,12 +11,24 @@ module Util =
      | Ok o :: rest -> o :: okays rest
      | Error _ :: rest -> okays rest
 
+   let rec errors list = 
+      match list with 
+      | [] -> []
+      | Ok o :: rest -> errors rest 
+      | Error e :: rest -> e :: errors rest
+
    let rec somes list =
       match list with
       | [] -> []
       | Some s :: rest -> s :: somes rest 
       | None :: rest -> somes rest
+
    let cons x y = x :: y
+
+   let tryCons item list = 
+      match item with 
+      | None -> list 
+      | Some s -> s :: list
 
 // http://matthewmanela.com/blog/functional-stateful-program-in-f/
 
@@ -56,6 +68,10 @@ module Result =
          | Error e -> Error e
 
    let result = ResultBuilder ()
+
+   let isOkay = function 
+      | Ok _ -> true 
+      | Error _ -> false
 
 
       
