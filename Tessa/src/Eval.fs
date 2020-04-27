@@ -77,8 +77,7 @@ module Eval =
 
     type StackExecutionContext = {
         currentOp: OperationState;
-        beforeOp: Exp list;
-        afterOp: Exp list;
+        arguments: Exp list;
         environment: Map<string, Exp>;
         ret: Exp option;
         // doesn't work because of primitive functions
@@ -95,7 +94,7 @@ module Eval =
     }
 
     type Environment = Map<string, Exp>
-    type PrimitiveProcedureFn = (Exp list) -> (Exp list) -> Result<Exp * Environment, EvalError>
+    type PrimitiveProcedureFn = (Exp list) -> Result<Exp * Environment, EvalError>
 
     let parsePrimitiveToEvalPrimitive = function
         | P.Assign -> Assign
@@ -114,9 +113,8 @@ module Eval =
 
     // Primitive procedures
     // todo: many of these will have to reverse the lists first in order to sensibly apply
-    let addNumber before after env =
-        let everything = before @ after
-        let numbers = List.map toNumber everything
+    let addNumber arguments env =
+        let numbers = List.map toNumber arguments
         let errs = errors numbers
         let oks = okays numbers
 
@@ -124,9 +122,9 @@ module Eval =
         then Error <| AddingNonNumbers errs 
         else Ok(List.sum oks |> Number, env) 
 
-    let assign before after env = 
-        match (before, after) with 
-        | ([Quote(P.Expression(P.Identifier i))], [a]) -> Ok(a, Map.add i a env)
+    let assign arguments env = 
+        match arguments with 
+        | a:: [Quote(P.Expression(P.Identifier i))] -> Ok(a, Map.add i a env)
         | _ -> Error AssignError // todo: could make this a lot more specific
 
     let lookupPrimitiveProcedure = function
@@ -139,8 +137,7 @@ module Eval =
 
     let emptyStackExecutionContext = {
         currentOp = Empty;
-        beforeOp = [];
-        afterOp = [];
+        arguments = [];
         environment = startingEnvironment;
         ret = None;}
         //subExpressions = Map.empty}
@@ -155,27 +152,27 @@ module Eval =
 
     let acceptExpression exp context = 
         match context.currentOp with
-            | Empty -> Ok <| {context with beforeOp = exp :: context.beforeOp}
+            | Empty -> Ok <| {context with arguments = exp :: context.arguments}
             | EmptyAcceptNext -> 
                 match exp with 
                 | PrimitiveProcedure p -> Ok <| {context with currentOp = Op (Primitive p)}
                 | _ -> Error <| ApplyingNonFunction exp
-            | Op _ -> Ok <| {context with afterOp = exp :: context.afterOp}
+            | Op _ -> Ok <| {context with arguments = exp :: context.arguments}
 
     let acceptNextOp context = Ok <| {context with currentOp = EmptyAcceptNext}
 
     let reduceStack context = 
         match context.currentOp with 
             | Empty -> 
-                let ret = List.tryHead context.beforeOp
-                Ok {context with ret = ret; currentOp = Empty; beforeOp = []; afterOp = [];}
-            | EmptyAcceptNext -> Ok {context with currentOp = Empty; beforeOp = [];afterOp = []; ret = List.tryHead context.beforeOp;}
+                let ret = List.tryHead context.arguments
+                Ok {context with ret = ret; currentOp = Empty; arguments = [];}
+            | EmptyAcceptNext -> Ok {context with currentOp = Empty; arguments = []; ret = List.tryHead context.arguments;}
             | Op o -> 
                 match o with 
                 | Primitive p -> monad {
                     let fn = lookupPrimitiveProcedure p
-                    let! (applied, newEnv) = fn context.beforeOp context.afterOp context.environment
-                    let newStack = {context with beforeOp = [applied]; afterOp = []; currentOp = Empty; environment = newEnv; ret = Some applied;}
+                    let! (applied, newEnv) = fn context.arguments context.environment
+                    let newStack = {context with arguments = [applied]; currentOp = Empty; environment = newEnv; ret = Some applied;}
                     return newStack
                 }
 
@@ -230,7 +227,7 @@ module Eval =
         | EndStack -> 
             monad {
                 let! newStackContext = reduceStack initContext.currentContext
-                return {initContext with currentContext = {newStackContext with beforeOp = []; afterOp = []; currentOp = Empty;}}
+                return {initContext with currentContext = {newStackContext with arguments = []; currentOp = Empty;}}
             }
         | ReduceAndPushOp(maybePrimitive) -> 
             match maybePrimitive with
@@ -251,7 +248,7 @@ module Eval =
                     match returnTo with
                     | None -> Error UnbalancedParenExtraClose 
                     | Some continuation -> 
-                        let updatedCurrentContext =  {continuation with beforeOp = tryCons ret continuation.beforeOp}
+                        let updatedCurrentContext =  {continuation with arguments = tryCons ret continuation.arguments}
                         let newContext = {initContext with continuations = List.tail initContext.continuations; currentContext = updatedCurrentContext}
                         Ok newContext
                 return! newContext
