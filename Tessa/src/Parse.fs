@@ -63,16 +63,14 @@ module Parse =
                 let! (nextExpr, restOfRest) = parse rest
                 return (Option.map (Quote >> Expression) nextExpr, restOfRest)
             }
-        | t :: rest -> 
-            match t with
-            | Lex.StackOp -> Ok (Some <| ReduceAndPushOp None, rest)// Ok ((ReduceAndPushOp None) |> Some, rest)
-            | Lex.EndStackOps -> Ok (Some EndStack, rest)
-            | Lex.Identifier i -> Ok (Identifier i |> Expression |> Some, rest)
-            | Lex.Fraction (numer, denom) -> Ok ((float numer) / (float denom) |> Number |> Expression |> Some, rest)
-            | Lex.PrimitiveProc pp -> Ok (tokenToPrimitive pp |> Some |> ReduceAndPushOp |> Some, rest)
-            | Lex.WhiteSpace -> Ok (NewStack [] |> Some, rest)
-            | Lex.BeginNestedExpression -> parseList rest >>= (fun (parsed, restOfRest) -> Ok (Some <| NewStack parsed, restOfRest))
-            | Lex.EndNestedExpression -> Error ExtraEndingParen
+        | Lex.StackOp :: rest -> Ok (Some <| ReduceAndPushOp None, rest)// Ok ((ReduceAndPushOp None) |> Some, rest)
+        | Lex.EndStackOps :: rest -> Ok (Some EndStack, rest)
+        | Lex.Identifier i :: rest -> Ok (Identifier i |> Expression |> Some, rest)
+        | Lex.Fraction (numer, denom) :: rest -> Ok ((float numer) / (float denom) |> Number |> Expression |> Some, rest)
+        | Lex.PrimitiveProc pp :: rest -> Ok (tokenToPrimitive pp |> Some |> ReduceAndPushOp |> Some, rest)
+        | Lex.WhiteSpace :: rest -> Ok (NewStack [] |> Some, rest)
+        | Lex.BeginNestedExpression :: rest -> parseList rest >>= (fun (parsed, restOfRest) -> Ok (Some <| NewStack parsed, restOfRest))
+        | Lex.EndNestedExpression :: rest -> Error ExtraEndingParen
         | [] -> Ok (None, [])
 
     and tokenToPrimitive (procToken : Lex.PrimitiveProcToken) : PrimitiveProcedure = 

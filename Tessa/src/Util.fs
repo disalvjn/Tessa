@@ -32,6 +32,8 @@ module Util =
 
    let failAndPrint a = failwith (sprintf "%A" a)
 
+   let listToMap lst = List.fold (fun m (k, v) -> Map.add k v m) Map.empty lst
+
 // http://matthewmanela.com/blog/functional-stateful-program-in-f/
 
 module Result = 

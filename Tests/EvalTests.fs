@@ -77,3 +77,41 @@ module EvalTests =
         let result = eval "'i = 1; i;" |> fromResult
         let asNum = fromSomeNumber result.currentContext.ret
         Assert.Equal(1.0, asNum)
+
+    [<Fact>]
+    let ``Test Record Building 1``() =
+        let input = 
+            """
+            'x = 1; 'y = 2;
+            'r = ({} 'x 'y);
+             """
+        let result = eval input |> fromResult
+        let (Some(E.Record(recordMap))) = result.currentContext.ret 
+        let expected = Map.empty |> Map.add "x" (E.Number 1.0) |> Map.add "y" (E.Number 2.0)
+        Assert.Equal<Map<string, E.Exp>>(expected, recordMap)
+        
+    [<Fact>]
+    let ``Test Record Building 2``() =
+        let input = 
+            """
+            'x = 1;
+            'r = ({} 'x 'y 2);
+             """
+        let result = eval input |> fromResult
+        let (Some(E.Record(recordMap))) = result.currentContext.ret 
+        let expected = Map.empty |> Map.add "x" (E.Number 1.0) |> Map.add "y" (E.Number 2.0)
+        Assert.Equal<Map<string, E.Exp>>(expected, recordMap)
+
+    [<Fact>]
+    let ``Test Record Access``() =
+        let input = 
+            """
+            'r = ({} 'x 1 'y 2);
+            r . 'x :plus (r . 'y);
+             """
+        let result = eval input |> fromResult
+        let asNum = fromSomeNumber result.currentContext.ret 
+        Assert.Equal(3.0, asNum)
+        
+
+
