@@ -30,6 +30,18 @@ module EvalTests =
 
     let eval s = E.eval (lexAndParse s)
 
+    // [<Fact>]
+    // let ``Simple Addition Nested Incomplete`` () = 
+    //     // failAndPrint <| E.flattenParseStackCommands (lexAndParse "1 :plus ( 2")
+    //     failAndPrint <| eval "1 :plus (( 2 :plus 3) :plus 4"
+    //     ()
+
+    [<Fact>]
+    let ``Addition With Continuation Returning`` () = 
+        let result = eval "1 :plus (2);" |> fromResult
+        let asNum = fromSomeNumber result.currentContext.ret
+        Assert.Equal(3.0, asNum)
+
     [<Fact>]
     let ``Simple Addition`` () = 
         let result = eval "1 :plus 2 :plus 3;" |> fromResult

@@ -14,21 +14,22 @@ module Eval =
     open Util
 
     type PrimitiveProcedure = 
+        | AddNumber
+        | Assign
         | ArrayBuilder 
         | RecordBuilder 
+        | Lambda
+
         | LinkPoints 
         | Perpendicular 
         | Intersect 
         | At 
         | ApplyOp 
-        | Assign
         | RecordAccess
         | Snip
         | Draw
-        | Lambda
         // has optional assignment semantics also! more convenient.
         | CellBuild
-        | AddNumber
 
     // todo: Need to pipe Lex pos into Parse so I can add positions here
     type EvalError =
@@ -165,7 +166,9 @@ module Eval =
 
     let reduceStack context = 
         match context.currentOp with 
-            | Empty -> Ok {context with currentOp = Empty; beforeOp = []; afterOp = []; ret = List.tryHead context.beforeOp;}
+            | Empty -> 
+                let ret = List.tryHead context.beforeOp
+                Ok {context with ret = ret; currentOp = Empty; beforeOp = []; afterOp = [];}
             | EmptyAcceptNext -> Ok {context with currentOp = Empty; beforeOp = [];afterOp = []; ret = List.tryHead context.beforeOp;}
             | Op o -> 
                 match o with 
@@ -216,39 +219,40 @@ module Eval =
             | P.EndStack -> [EndStack]
         List.collect flatten commands
 
-    let evalStackCommand context stackCommand = 
+    let evalStackCommand initContext stackCommand = 
         match stackCommand with 
         | BeginNewStack -> 
-            let current = context.currentContext
+            let current = initContext.currentContext
             let top = {emptyStackExecutionContext with environment = current.environment}
-            Ok <| {context with currentContext = top; continuations = current :: context.continuations;}
-        | Expression word -> evalWord context word >>= (fun e -> (liftToExecutionContext (acceptExpression e) context))
+            Ok <| {initContext with currentContext = top; continuations = current :: initContext.continuations;}
+        | Expression word -> evalWord initContext word >>= (fun e -> (liftToExecutionContext (acceptExpression e) initContext))
         // continuation pushing . We have a return, now we just need to push it to the before op before us
         | EndStack -> 
             monad {
-                let! newStackContext = reduceStack context.currentContext
-                return {context with currentContext = {newStackContext with beforeOp = []; afterOp = []; currentOp = Empty;}}
+                let! newStackContext = reduceStack initContext.currentContext
+                return {initContext with currentContext = {newStackContext with beforeOp = []; afterOp = []; currentOp = Empty;}}
             }
         | ReduceAndPushOp(maybePrimitive) -> 
             match maybePrimitive with
             | Some primitive -> 
                 monad {
-                    let! acceptingContext = liftToExecutionContext acceptNextOp context
+                    let! acceptingContext = liftToExecutionContext acceptNextOp initContext
                     let evalPrimitive = parsePrimitiveToEvalPrimitive primitive |> PrimitiveProcedure
                     return! (liftToExecutionContext (acceptExpression evalPrimitive) acceptingContext)
                 }
-            | None -> liftToExecutionContext acceptNextOp context
+            | None -> liftToExecutionContext acceptNextOp initContext
         | ReturnNewStack -> 
             monad {
-                let! newStackContext = reduceStack context.currentContext
-                let ret = List.tryHead newStackContext.beforeOp
-                let returnTo = List.tryHead context.continuations 
+                let! newStackContext = reduceStack initContext.currentContext
+                let ret = newStackContext.ret
+                let returnTo = List.tryHead initContext.continuations 
+                // failAndPrint (newStackContext, ret, returnTo)
                 let newContext = 
                     match returnTo with
                     | None -> Error UnbalancedParenExtraClose 
                     | Some continuation -> 
                         let updatedCurrentContext =  {continuation with beforeOp = tryCons ret continuation.beforeOp}
-                        let newContext = {context with continuations = List.tail context.continuations; currentContext = updatedCurrentContext}
+                        let newContext = {initContext with continuations = List.tail initContext.continuations; currentContext = updatedCurrentContext}
                         Ok newContext
                 return! newContext
             }
