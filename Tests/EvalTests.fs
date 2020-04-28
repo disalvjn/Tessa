@@ -138,6 +138,8 @@ module EvalTests =
         // the continuation, which can reduce. This gives us 5.
         // Or you could argue that while the top frame cannot currently reduce, it was able to previously,
         // and we should be using that reduction and passing it to the continuation, giving us 9.
+        // I think 9 makes the most sense because if it's being entered sequentially, it would
+        // go 5 -> 9 (at 'i = 4) -> _, and going back to 5 seems like bad form.
         Assert.Equal(9.0, fromSomeNumber <| evalPartial "2 :plus 3 :plus ('i = 4 :plus ('x")
 
         Assert.Equal(10.0, fromSomeNumber <| evalPartial "2 :plus 3 :plus ('i = 4 :plus ('x = 1")

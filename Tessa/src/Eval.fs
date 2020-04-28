@@ -326,6 +326,8 @@ module Eval =
             | None -> None 
             | Some (priority, exp) -> Option.map (fun e -> (priority, e)) exp
 
+        // This is really a mess right now.
+        // Lower priority is better; lowest priority is always the top frame.
         let rec go invPriority context  = 
             match context.continuations with 
             // If there are no continuations, it's easy -- reduce the top and only frame. This may or may not yield a value.
