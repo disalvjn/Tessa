@@ -90,8 +90,9 @@ module Eval =
     type ExecutionContext = {
         // stackContext[i] has continuation stackContext[i + 1]
         continuations: StackExecutionContext list;
-        currentContext: StackExecutionContext
+        currentContext: StackExecutionContext;
         solveContext: S.SolveContext;
+        reduction: Exp option;
         // have a Solve function to seemlessly evaluate 
     }
 
@@ -180,6 +181,7 @@ module Eval =
         continuations = [];
         currentContext = emptyStackExecutionContext;
         solveContext = S.emptySolveContext;
+        reduction = None;
     }
 
     let updateTop f context = 
@@ -301,20 +303,71 @@ module Eval =
                 return! returnToLastContinuation ret initContext
             }
 
-    // // Like a sauce in a pot all day!
-    // let tryReduceDown context = 
-    //     // while there are continuations, reduce and return to. Then reduce. Except if there are errors.
-    //     let go lastResult currentContext continuations  =
-    //         match continuations with 
-    //         | [] -> 
+    let firstPriorityOption newReduction lastResult = 
+        match (newReduction, lastResult) with
+        | (Some (x, nr), Some (y, lr)) -> 
+            if x <= y then Some (x, nr) else Some (y, lr)
+        | (Some (x, nr), None) -> Some (x, nr)
+        | (None, Some (y, lr)) -> Some (y, lr)
+        | (None, None) -> None 
 
+    // Like a sauce in a pot all day!
+    let tryReduceDown context = 
+        let pop context = 
+            let nextContinuation = List.tryHead context.continuations
+            Option.map (fun c -> {context with currentContext = c; continuations = List.tail context.continuations}) nextContinuation
+
+        let toOption result = match result with
+            | Ok o -> Some o
+            | Error _ -> None
+
+        let joinPriority p = 
+            match p with 
+            | None -> None 
+            | Some (priority, exp) -> Option.map (fun e -> (priority, e)) exp
+
+        let rec go invPriority context  = 
+            match context.continuations with 
+            // If there are no continuations, it's easy -- reduce the top and only frame. This may or may not yield a value.
+            | [] -> 
+                let reduced = reduceStackHelper context.currentContext |> toOption |> Option.map (fun (ret, _, _, _) -> ret) |> join
+                Option.map (fun r -> (invPriority, r)) reduced
+
+            // As an example for when we have continuations, let's use 
+            // 2 :plus 3 :plus ('i = 
+            // The partial evaluation should be 5, because we give up on ('i =
+            // and go to the last continuation.
+            | _::_ ->  
+                // First we get the fallback by popping the top frame and recursively getting the result
+                // as if the top frame never existed.
+                let fallBack = pop context |>> go (invPriority + 1) |> join
+                let withThisFrameResult = monad {
+                    // Then we reduce the top frame and push to the continuation and try reducing.
+                    let! (ret, _, _, _) = reduceStackHelper context.currentContext 
+                    let! returnedContext = returnToLastContinuation ret context
+                    return go invPriority returnedContext
+                } 
+
+                let withThisFrame = toOption withThisFrameResult |> join
+                // This lets us compare two things below:
+                // The continuation reduced without this frame, and the continuation reduced with it.
+                // If the introduction of this frame still yields a good result, we prefer that.
+                // But otherwise, we'll go with the fallback (if it's None, we lose nothing; if it's
+                // Some, that means the current frame is incomplete and introducing an error)
+                firstPriorityOption withThisFrame fallBack
+
+        go 0 context
 
     let eval stackCommands =
-        let rec go context commands = 
+        let rec go context commands lastResult = 
             match commands with 
-            | [] -> Ok context
-            | command :: rest -> monad {
-                let! newContext = evalStackCommand context command
-                return! go newContext rest
-            }
-        go emptyExecutionContext (flattenParseStackCommands stackCommands)
+            | [] -> (lastResult, Ok context)
+            | command :: rest -> 
+                match evalStackCommand context command with 
+                | Ok newContext -> 
+                    let newReduction = tryReduceDown newContext
+                    let newLastResult = firstPriorityOption newReduction lastResult
+                    go newContext rest newLastResult // (firstOption (tryReduceDown newContext) lastResult)
+                | Error e -> (lastResult, Error e)
+        let (opt, result) = go emptyExecutionContext (flattenParseStackCommands stackCommands) None
+        (Option.map (fun (_, ret) -> ret) opt, result)

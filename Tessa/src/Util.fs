@@ -34,6 +34,11 @@ module Util =
 
    let listToMap lst = List.fold (fun m (k, v) -> Map.add k v m) Map.empty lst
 
+   let firstOption x y = 
+      match (x, y) with
+      | (Some(_), _) -> x
+      | _ -> y
+
 // http://matthewmanela.com/blog/functional-stateful-program-in-f/
 
 module Result = 
