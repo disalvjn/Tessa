@@ -175,7 +175,15 @@ module Eval =
         arguments = [];
         environment = startingEnvironment;
         ret = None;}
-        //subExpressions = Map.empty}
+
+    let emptyExecutionContext = {
+        continuations = [];
+        currentContext = emptyStackExecutionContext;
+        solveContext = S.emptySolveContext;
+    }
+
+    let updateTop f context = 
+        {context with currentContext = (f context.currentContext)}
 
     let liftToExecutionContext 
         (f: StackExecutionContext -> Result<StackExecutionContext, EvalError>) 
@@ -194,11 +202,40 @@ module Eval =
                 | _ -> Error <| ApplyingNonFunction exp
             | Op _ -> Ok <| {context with arguments = exp :: context.arguments}
 
-    let acceptNextOp context = Ok <| {context with currentOp = EmptyAcceptNext}
+    let acceptExpressionHelper exp context = 
+        match context.currentOp with
+            | EmptyAcceptNext -> 
+                match exp with 
+                | PrimitiveProcedure p -> Ok <| (context.arguments, Op (Primitive p))
+                | _ -> Error <| ApplyingNonFunction exp
+            | _ -> Ok <| (exp :: context.arguments, context.currentOp)
+
+    let acceptExpression2 exp context = 
+        monad {
+            let! (newArgs, newOp) = acceptExpressionHelper exp context.currentContext
+            return updateTop (fun t -> {t with arguments = newArgs; currentOp = newOp}) context
+        }
+
+    let acceptNextOp2 context = updateTop (fun t -> {t with currentOp = EmptyAcceptNext;}) context 
+    let acceptNextOp context = Ok {context with currentOp = EmptyAcceptNext;} 
+
+    let reduceStackHelper context = 
+        match context.currentOp with 
+            | Empty -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.environment)
+
+            | EmptyAcceptNext -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.environment) 
+
+            | Op o -> 
+                match o with 
+                | Primitive p -> monad {
+                    let fn = lookupPrimitiveProcedure p
+                    let! (applied, newEnv) = fn (List.rev context.arguments) context.environment
+                    return (Some applied, [applied], Empty, newEnv)
+                }
 
     let reduceStack context = 
         match context.currentOp with 
-            | Empty -> 
+            | Empty ->  
                 let ret = List.tryHead context.arguments
                 Ok {context with ret = ret;} // currentOp = Empty;} // arguments = [];}
             | EmptyAcceptNext -> Ok {context with currentOp = Empty; arguments = []; ret = List.tryHead context.arguments;}
@@ -211,16 +248,19 @@ module Eval =
                     return newStack
                 }
 
-    let emptyExecutionContext = {
-        continuations = [];
-        currentContext = emptyStackExecutionContext;
-        solveContext = S.emptySolveContext;
+    let reduceStack2 context = monad {
+        let! (ret, args, op, env) = reduceStackHelper context.currentContext
+        return updateTop (fun t -> {t with ret = ret; arguments = args; currentOp = op; environment = env}) context
     }
 
-    // let applyPrimitive context (primitiveProcedure: PrimitiveProcedureFn) = monad {
-    //     let! newStackExecutionContext = primitiveProcedure context.currentContext.beforeOp context.currentContext.afterOp
-    //     {context with currentContext = newStackExecutionContext}
-    // }
+    let returnToLastContinuation ret initContext =
+            // return to the last continuation
+        match List.tryHead initContext.continuations with 
+        | None -> Error UnbalancedParenExtraClose 
+        | Some continuation -> 
+            let updatedCurrentContext =  {continuation with arguments = tryCons ret continuation.arguments}
+            let newContext = {initContext with continuations = List.tail initContext.continuations; currentContext = updatedCurrentContext}
+            Ok newContext
 
     let findIdentifier execContext ident = 
         match Map.tryFind ident execContext.currentContext.environment with
@@ -251,44 +291,41 @@ module Eval =
             | P.EndStack -> [EndStack]
         List.collect flatten commands
 
+    let newTopFrame context = 
+        {emptyStackExecutionContext with environment = context.currentContext.environment}
+
+    let pushNewTopFrame context frame = 
+        let current = context.currentContext 
+        {context with currentContext = frame; continuations = current :: context.continuations;}
+
     let evalStackCommand initContext stackCommand = 
         match stackCommand with 
         | BeginNewStack -> 
-            let current = initContext.currentContext
-            let top = {emptyStackExecutionContext with environment = current.environment}
-            Ok <| {initContext with currentContext = top; continuations = current :: initContext.continuations;}
-        | Expression word -> evalWord initContext word >>= (fun e -> (liftToExecutionContext (acceptExpression e) initContext))
-        // continuation pushing . We have a return, now we just need to push it to the before op before us
+            newTopFrame initContext |> pushNewTopFrame initContext |> Ok
+
+        | Expression word -> 
+            evalWord initContext word >>= flip acceptExpression2 initContext
+
         | EndStack -> 
-            monad {
-                let! newStackContext = reduceStack initContext.currentContext
-                return {initContext with currentContext = {newStackContext with arguments = []; currentOp = Empty;}}
-            }
+            reduceStack2 initContext |>> updateTop (fun t -> {t with arguments= []; currentOp = Empty;})
+
         | ReduceAndPushOp(maybePrimitive) -> 
             // todo: reduce is possible
             match maybePrimitive with
             | Some primitive -> 
                 monad {
-                    let! acceptingContext = liftToExecutionContext (reduceStack >=> acceptNextOp) initContext
+                    let! acceptingContext = initContext |> reduceStack2 |>> acceptNextOp2 
                     let evalPrimitive = parsePrimitiveToEvalPrimitive primitive |> PrimitiveProcedure
-                    return! (liftToExecutionContext (acceptExpression evalPrimitive) acceptingContext)
+                    return! acceptExpression2 evalPrimitive acceptingContext
                 }
-            | None -> liftToExecutionContext (reduceStack >=> acceptNextOp) initContext
+            | None -> initContext |> reduceStack2 |>> acceptNextOp2 // liftToExecutionContext (reduceStack >=> acceptNextOp) initContext
+
         | ReturnNewStack -> 
             monad {
-                let! newStackContext = reduceStack initContext.currentContext
-                let ret = newStackContext.ret
-                let returnTo = List.tryHead initContext.continuations 
-                // failAndPrint (newStackContext, ret, returnTo)
-                let newContext = 
-                    match returnTo with
-                    | None -> Error UnbalancedParenExtraClose 
-                    | Some continuation -> 
-                        let updatedCurrentContext =  {continuation with arguments = tryCons ret continuation.arguments}
-                        let newContext = {initContext with continuations = List.tail initContext.continuations; currentContext = updatedCurrentContext}
-                        Ok newContext
-                return! newContext
+                let! (ret, _, _, _) = reduceStackHelper initContext.currentContext
+                return! returnToLastContinuation ret initContext
             }
+
 
     let eval stackCommands =
         let rec go context commands = 

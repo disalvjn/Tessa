@@ -112,6 +112,19 @@ module EvalTests =
         let result = eval input |> fromResult
         let asNum = fromSomeNumber result.currentContext.ret 
         Assert.Equal(3.0, asNum)
+
+    [<Fact>]
+    let ``Test Incomplete Current Expression Return`` () =
+        let goodInput = "2 :plus 3 :plus ('i = 4);"
+        let incompleteInput = "2 :plus 3 :plus ('i = "
+
+        let goodResult = eval goodInput |> fromResult 
+        Assert.Equal(9.0, fromSomeNumber goodResult.currentContext.ret)
+
+        // let incompleteResult = eval incompleteInput |> fromResult 
+        // failAndPrint incompleteResult
+        // ()
+
         
 
 
