@@ -1,6 +1,7 @@
 namespace Tessa.EvalTests
 
 open Xunit
+open Tessa.Eval.Types
 open Tessa.Eval 
 open Tessa.Lex 
 open Tessa.Parse 
@@ -9,6 +10,7 @@ module EvalTests =
     module Lex = Lex 
     module Parse = Parse
     module E = Eval
+    module E = EvalTypes
 
     let failAndPrint a = failwith (sprintf "%A" a)
 
@@ -144,5 +146,16 @@ module EvalTests =
 
         Assert.Equal(10.0, fromSomeNumber <| evalPartial "2 :plus 3 :plus ('i = 4 :plus ('x = 1")
         
+    // Assignment:
+    // Mostly care: REcord <- Array and Array <- Array
+    [<Fact>]
+    let ``Test Array Piecewise Assignment`` () =
+        let program = 
+            """
+            [] 'a 'b 'c = ([] 1 2 3);
+            'a 'b 'c :plus;
+            """
+        let result = evalAll program |> fromResult
+        Assert.Equal(6.0, result.currentContext.ret |> fromSomeNumber)
 
 

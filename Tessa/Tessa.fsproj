@@ -8,7 +8,9 @@
     <Compile Include="src/Parse.fs" />
     <Compile Include="src/Language.fs" />
     <Compile Include="src/Solve.fs" />
-    <Compile Include="src/Eval.fs" />
+    <Compile Include="src/Eval/EvalTypes.fs" />
+    <Compile Include="src/Eval/PrimitiveProcedures.fs" />
+    <Compile Include="src/Eval/Eval.fs" />
     <Compile Include="src/Program.fs" />
   </ItemGroup>
   <ItemGroup>
