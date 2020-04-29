@@ -153,7 +153,7 @@ module EvalTests =
         let program = 
             """
             [] 'a 'b 'c = ([] 1 2 3);
-            'a 'b 'c :plus;
+            a b c :plus;
             """
         let result = evalAll program |> fromResult
         Assert.Equal(6.0, result.currentContext.ret |> fromSomeNumber)

@@ -37,9 +37,19 @@ module PrimitiveProcedures =
         then Error <| AddingNonNumbers errs 
         else Ok(List.sum oks |> Number, env) 
 
+    let extractSymbol = function 
+        | Quote(P.Expression(P.Identifier i)) -> Ok i 
+        | x -> Error <| NotASymbol x
+
     let assign arguments env = 
         match arguments with 
         | Quote(P.Expression(P.Identifier i)) :: [a] -> Ok(a, Map.add i a env)
+        | Array a :: [Array b] -> 
+            if (List.length a) <> (List.length b)
+            then Error <| ArrayAssignmentUnequalCardinalities(a, b)
+            else 
+                let asSymbols = sequence <| map extractSymbol a
+                asSymbols >>= (fun symbols -> Ok(Array b, List.zip symbols b |> List.fold (fun e (k, v) -> Map.add k v e) env))
         | _ -> Error AssignError // todo: could make this a lot more specific
 
     let makeRecord arguments env =
@@ -74,10 +84,13 @@ module PrimitiveProcedures =
             | Some v -> Ok (v, env)
         | _ -> Error <| RecordAccessError("There aren't two arguments, or they aren't records and symbols, or I don't know -- you messed up.", None)
 
+    let arrayBuilder arguments env = Ok (Array arguments, env)
+
 
     let lookupPrimitiveProcedure = function
         | AddNumber -> addNumber
         | Assign -> assign
         | RecordBuilder -> makeRecord
         | RecordAccess -> recordAccess
+        | ArrayBuilder -> arrayBuilder
 

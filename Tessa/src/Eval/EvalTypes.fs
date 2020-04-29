@@ -37,6 +37,8 @@ module EvalTypes =
         | AssignError
         | RecordBuildingError
         | RecordAccessError of field: string * record: Exp option
+        | ArrayAssignmentUnequalCardinalities of Exp list * Exp list
+        | NotASymbol of Exp
 
     and Exp =
         | Number of float
