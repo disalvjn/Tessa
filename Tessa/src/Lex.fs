@@ -26,7 +26,6 @@ module Lex =
         | Snip // *-*
         | Draw // !
         | Lambda
-        | CellBuilder // <#>
 
     type Token = 
         | StackOp // :
@@ -58,7 +57,6 @@ module Lex =
         ("'", always QuotePrimitive);
         ("\.", always <| PrimitiveProc RecordAccess);
         ("\!", always <| PrimitiveProc Draw);
-        ("<#>", always <| PrimitiveProc CellBuilder);
         ("\s", always WhiteSpace);
         ("[a-zA-Z{}!@#$%^&*-+~=\[\]]+[\d]*", Identifier);
         ("[\d]+/*[\d]*", fun s -> s.Split("/") |> (fun arr -> Fraction (int arr.[0], if arr.Length = 1 then 1 else int arr.[1])));]

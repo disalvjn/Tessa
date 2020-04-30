@@ -27,9 +27,9 @@ module LexTests =
 
     [<Fact>]
     let ``Lex an entire statement 2`` () =
-        let statement = "<#> (! (a.b))"
+        let statement = "(! (a.b))"
         let lexed = Lex.lex statement |> fromResult |> List.map fst
-        let expected = [Lex.PrimitiveProc(Lex.CellBuilder); Lex.BeginNestedExpression; Lex.PrimitiveProc(Lex.Draw); Lex.BeginNestedExpression;
+        let expected = [Lex.BeginNestedExpression; Lex.PrimitiveProc(Lex.Draw); Lex.BeginNestedExpression;
             Lex.Identifier("a"); Lex.PrimitiveProc(Lex.RecordAccess); Lex.Identifier("b"); Lex.EndNestedExpression; Lex.EndNestedExpression;]
         Assert.Equal<Lex.Token list>(lexed, expected);
 

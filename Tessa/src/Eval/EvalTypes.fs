@@ -23,11 +23,9 @@ module EvalTypes =
         | C4Clockwise
         | ApplyOp 
         | Snip
-
         | Intersect 
+
         | Draw
-        // has optional assignment semantics also! more convenient.
-        | CellBuild
         | Lambda
 
     // todo: Need to pipe Lex pos into Parse so I can add positions here
@@ -44,6 +42,7 @@ module EvalTypes =
         | NotALinkablePointOrSegment of Exp
         | LinkingMoreThanTwoPointsOrSegments of Exp list
         | WrongArgumentsToPerpendicular of Exp list
+        | WrongArgumentsToIntersect of Exp list
         | NotASegment of Exp 
         | NotANumber of Exp
         | NotAPoint of Exp

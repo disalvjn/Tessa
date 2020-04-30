@@ -188,7 +188,8 @@ module Eval =
             let nextContinuation = List.tryHead context.continuations
             Option.map (fun c -> {context with currentContext = c; continuations = List.tail context.continuations}) nextContinuation
 
-        let toOption result = match result with
+        let toOption result = 
+            match result with
             | Ok o -> Some o
             | Error _ -> None
 

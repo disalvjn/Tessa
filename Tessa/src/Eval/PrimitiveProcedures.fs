@@ -31,7 +31,6 @@ module PrimitiveProcedures =
         | P.RecordAccess -> RecordAccess
         | P.Draw -> Draw
         | P.Lambda -> Lambda
-        | P.CellBuild -> CellBuild
 
     let addNumber arguments env =
         let numbers = List.map toNumber arguments
@@ -91,26 +90,12 @@ module PrimitiveProcedures =
 
     let arrayBuilder arguments env = Ok (Array arguments, env)
 
-    let asPointOrSegment exp = 
-        match exp with 
-        | GeoExp (LPoint p) ->  Ok <| Choice1Of2 p
-        | GeoExp (LSegment s) -> Ok <| Choice2Of2 s
-        | _ -> Error <| NotALinkablePointOrSegment exp
-
     let linkPoints arguments env = 
         match arguments with 
-        | [aExp; bExp;] -> 
-            monad {
-                let! a = asPointOrSegment aExp
-                let! b = asPointOrSegment bExp
-                let linked =
-                    match (a, b) with
-                    | (Choice1Of2 p, Choice1Of2 q) -> L.add p q
-                    | (Choice1Of2 p, Choice2Of2 s) -> L.add p s
-                    | (Choice2Of2 s, Choice1Of2 p) -> L.add s p
-                    | (Choice2Of2 s, Choice2Of2 r) -> L.add s r
-                return (linked |> LSegment |> GeoExp, env)
-            }
+        | [GeoExp(LPoint p); GeoExp(LPoint q)] -> Ok (L.add p q |> LSegment |> GeoExp, env)
+        | [GeoExp(LPoint p); GeoExp(LSegment s)] -> Ok (L.add p s |> LSegment |> GeoExp, env)
+        | [GeoExp(LSegment s); GeoExp(LPoint p)] -> Ok (L.add s p |> LSegment |> GeoExp, env) 
+        | [GeoExp(LSegment s); GeoExp(LSegment r)] -> Ok (L.add s r |> LSegment |> GeoExp, env)
         | _ -> Error <| LinkingMoreThanTwoPointsOrSegments arguments 
 
     let asSegment x = 
@@ -188,6 +173,13 @@ module PrimitiveProcedures =
             }
         | _ -> Error <| WrongArgumentsToSnip arguments
 
+    let intersect arguments env = 
+        match arguments with 
+        | [GeoExp(LLine l); GeoExp(LLine m)] -> Ok (L.Point.Intersection(l, m) |> LPoint |> GeoExp, env)
+        | [GeoExp(LLine l); GeoExp(LSegment s)] -> Ok (L.Point.Intersection(l, L.asLine s) |> LPoint |> GeoExp, env)
+        | [GeoExp(LSegment s); GeoExp(LLine l)] -> Ok (L.Point.Intersection(L.asLine s, l) |> LPoint |> GeoExp, env)
+        | [GeoExp(LSegment s); GeoExp(LSegment r)] -> Ok (L.Point.Intersection(L.asLine s, L.asLine r) |> LPoint |> GeoExp, env)
+        | _ -> Error <| WrongArgumentsToIntersect arguments
 
     let makeSquare arguments env = 
         [L.Absolute(0.0, 1.0); L.Absolute(1.0, 1.0); L.Absolute(1.0,0.0); L.Absolute(0.0,0.0);]
@@ -209,4 +201,5 @@ module PrimitiveProcedures =
         | C4Clockwise -> c4Clockwise
         | ApplyOp -> applyOp
         | Snip -> snip
+        | Intersect -> intersect
 

@@ -20,8 +20,6 @@ module Parse =
         | Snip
         | Draw
         | Lambda
-        // has optional assignment semantics also! more convenient. e.g. (<#> ( a + b !))
-        | CellBuild
 
     type Word = 
         | Identifier of string
@@ -87,5 +85,4 @@ module Parse =
         | Lex.RecordAccess -> RecordAccess
         | Lex.Draw -> Draw
         | Lex.Lambda -> Lambda
-        | Lex.CellBuilder -> CellBuild
     
