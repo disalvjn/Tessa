@@ -1,14 +1,19 @@
 namespace Tessa.Eval.PrimitiveProcedures
 
+open Tessa.Language
 open Tessa.Eval.Types
 open Tessa.Util
 open Tessa.Parse
 open FSharpPlus
 
+// TODO: could make error handling in this significantly better by having recursive EvalErrors and building stack traces.
+// Plus, pipe Lex positional info into Parse and use that in the evaluator.
 module PrimitiveProcedures = 
     open EvalTypes
     open Util
     module P = Parse
+    module L = Language
+    module C = FSharpPlus.Choice
 
     type Environment = Map<string, Exp>
     type PrimitiveProcedureFn = (Exp list) -> Result<Exp * Environment, EvalError>
@@ -86,6 +91,110 @@ module PrimitiveProcedures =
 
     let arrayBuilder arguments env = Ok (Array arguments, env)
 
+    let asPointOrSegment exp = 
+        match exp with 
+        | GeoExp (LPoint p) ->  Ok <| Choice1Of2 p
+        | GeoExp (LSegment s) -> Ok <| Choice2Of2 s
+        | _ -> Error <| NotALinkablePointOrSegment exp
+
+    let linkPoints arguments env = 
+        match arguments with 
+        | [aExp; bExp;] -> 
+            monad {
+                let! a = asPointOrSegment aExp
+                let! b = asPointOrSegment bExp
+                let linked =
+                    match (a, b) with
+                    | (Choice1Of2 p, Choice1Of2 q) -> L.add p q
+                    | (Choice1Of2 p, Choice2Of2 s) -> L.add p s
+                    | (Choice2Of2 s, Choice1Of2 p) -> L.add s p
+                    | (Choice2Of2 s, Choice2Of2 r) -> L.add s r
+                return (linked |> LSegment |> GeoExp, env)
+            }
+        | _ -> Error <| LinkingMoreThanTwoPointsOrSegments arguments 
+
+    let asSegment x = 
+        match x with
+        | GeoExp (LSegment s) -> Ok s 
+        | _ -> Error <| NotASegment x
+
+    let asNumber x = 
+        match x with 
+        | Number n -> Ok n
+        | _ -> Error <| NotANumber x
+
+    let asPoint x =
+        match x with 
+        | GeoExp (LPoint p) -> Ok p 
+        | _ -> Error <| NotAPoint x
+
+    let asOp x =
+        match x with 
+        | GeoExp (LOperation o) -> Ok o
+        | _ -> Error <| NotAnOperation x
+
+    let perpendicular arguments env =
+        match arguments with 
+        | [segment; position;] -> 
+            monad {
+                let! p = asNumber position
+                let! s = asSegment segment
+                return (L.Line.Perpendicular(p, s) |> LLine |> GeoExp, env)
+            }
+        | [segment; position; endSegment;] ->
+            monad {
+                let! p = asNumber position
+                let! s = asSegment segment 
+                let! es = asSegment endSegment
+                return (L.Segment.Perpendicular(p, s, es) |> LSegment |> GeoExp, env)
+            }
+        | _ -> Error <| WrongArgumentsToPerpendicular arguments
+
+    let at arguments env = 
+        match arguments with
+        | [segment; position;] ->
+            monad {
+                let! p = asNumber position
+                let! s = asSegment segment
+                return (L.Point.OnSegment(L.PointOnSegment(p, s)) |> LPoint |> GeoExp, env)
+            }
+        | _ -> Error <| WrongArgumentsToAt arguments
+
+    let rotation arguments env direction angle =
+        match arguments with 
+        | [point] -> asPoint point >>= (fun p -> Ok (L.Rotate(direction, angle, p) |> LOperation |> GeoExp, env))
+        | _ -> Error <| WrongArgumentsToRotation arguments
+
+    let c4Clockwise arguments env =
+        rotation arguments env L.Clockwise L.C4
+
+    let applyOp arguments env = 
+        match arguments with 
+        | [point; op;] -> 
+            monad {
+                let! p = asPoint point 
+                let! o = asOp op
+                return (L.Operated(p, o) |> LPoint |> GeoExp, env)
+            }
+        | _ -> Error <| WrongArgumentsToApplyOp arguments
+
+    let snip arguments env =
+        match arguments with 
+        | [segment; cutAt;] ->
+            monad {
+                let! s = asSegment segment 
+                let! c = asSegment cutAt 
+                return (L.Segment.Snipped(s, c) |> LSegment |> GeoExp, env)
+            }
+        | _ -> Error <| WrongArgumentsToSnip arguments
+
+
+    let makeSquare arguments env = 
+        [L.Absolute(0.0, 1.0); L.Absolute(1.0, 1.0); L.Absolute(1.0,0.0); L.Absolute(0.0,0.0);]
+        |> List.map (LPoint >> GeoExp)
+        |> Array
+        |> flip tuple2 env 
+        |> Ok
 
     let lookupPrimitiveProcedure = function
         | AddNumber -> addNumber
@@ -93,4 +202,11 @@ module PrimitiveProcedures =
         | RecordBuilder -> makeRecord
         | RecordAccess -> recordAccess
         | ArrayBuilder -> arrayBuilder
+        | Square -> makeSquare
+        | LinkPoints -> linkPoints
+        | Perpendicular -> perpendicular
+        | At -> at
+        | C4Clockwise -> c4Clockwise
+        | ApplyOp -> applyOp
+        | Snip -> snip
 

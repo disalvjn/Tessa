@@ -71,13 +71,14 @@ module Language =
     let inline asSegment (p:^t) = (^t: (static member ToSegment: ^t -> Segment) (p))
     let inline asSegmentable (p:^t) = (^t: (static member ToSegmentable: ^t -> CanMakeSegment) (p))
     // let inline (+) p q = Concat(asSegment p, asSegment q)
-    let inline (+) p q =
+    let inline add p q = 
         let ps, qs = asSegmentable p, asSegmentable q
         match ps, qs with 
             | (SinglePoint x, SinglePoint y) -> Link(x, y)
             | (SinglePoint x, AlreadySegment y) -> Chain(y, x)
             | (AlreadySegment x, SinglePoint y) -> Chain(x, y)
             | (AlreadySegment x, AlreadySegment y) -> Concat(x, y)
+    let inline (+) p q = add p q
 
     let inline asLine (x:^t) = (^t: (static member ToLine: ^t -> Line) (x))
     let inline (*) x y = Intersection(asLine x, asLine y)

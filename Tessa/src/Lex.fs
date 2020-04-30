@@ -49,7 +49,7 @@ module Lex =
         ("\+", always <| PrimitiveProc LinkPoints);
         ("\|\-", always <| PrimitiveProc Perpendicular);
         ("->", always <| PrimitiveProc Lambda);
-        ("\*-\*", always <| PrimitiveProc Snip);
+        ("#", always <| PrimitiveProc Snip);
         ("\*", always <| PrimitiveProc Intersect);
         ("\@", always <| PrimitiveProc At);
         ("%", always <| PrimitiveProc ApplyOp);

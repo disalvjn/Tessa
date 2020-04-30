@@ -12,21 +12,23 @@ module EvalTypes =
 
     type PrimitiveProcedure = 
         | AddNumber
+        | Square
         | Assign
         | RecordBuilder 
         | RecordAccess
         | ArrayBuilder 
-        | Lambda
-
         | LinkPoints 
         | Perpendicular 
-        | Intersect 
         | At 
+        | C4Clockwise
         | ApplyOp 
         | Snip
+
+        | Intersect 
         | Draw
         // has optional assignment semantics also! more convenient.
         | CellBuild
+        | Lambda
 
     // todo: Need to pipe Lex pos into Parse so I can add positions here
     type EvalError =
@@ -39,6 +41,17 @@ module EvalTypes =
         | RecordAccessError of field: string * record: Exp option
         | ArrayAssignmentUnequalCardinalities of Exp list * Exp list
         | NotASymbol of Exp
+        | NotALinkablePointOrSegment of Exp
+        | LinkingMoreThanTwoPointsOrSegments of Exp list
+        | WrongArgumentsToPerpendicular of Exp list
+        | NotASegment of Exp 
+        | NotANumber of Exp
+        | NotAPoint of Exp
+        | NotAnOperation of Exp
+        | WrongArgumentsToAt of Exp list
+        | WrongArgumentsToRotation of Exp list
+        | WrongArgumentsToApplyOp of Exp list
+        | WrongArgumentsToSnip of Exp list
 
     and Exp =
         | Number of float

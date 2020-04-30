@@ -158,4 +158,15 @@ module EvalTests =
         let result = evalAll program |> fromResult
         Assert.Equal(6.0, result.currentContext.ret |> fromSomeNumber)
 
+    // [<Fact>]
+    // let ``Test Geometry`` () =
+    //     let program =
+    //         """
+    //         [] 'a 'b 'c 'd = (:square);
+    //         'i = (a + b |- 1/4 (d + c) @ 1/4);
+    //         """
+    //     let result = evalAll program
+    //     failAndPrint result
+    //     ()
+
 
