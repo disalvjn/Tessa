@@ -22,9 +22,6 @@ module Eval =
         arguments: Exp list;
         environment: Map<string, Exp>;
         ret: Exp option;
-        // doesn't work because of primitive functions
-        // subExpressions: Map<Exp, Exp>;
-        // continuation implicitly stored in list
     }
 
     type ExecutionContext = {
@@ -33,7 +30,13 @@ module Eval =
         currentContext: StackExecutionContext;
         solveContext: S.SolveContext;
         reduction: Exp option;
-        // have a Solve function to seemlessly evaluate 
+    }
+
+    type EvalResult = {
+        value: Exp option;
+        environment: Map<string, Exp>;
+        draw: Map<string, GeoExp list>;
+        error: EvalError option;
     }
 
     let startingEnvironment = 
@@ -244,4 +247,8 @@ module Eval =
                     go newContext rest newLastResult // (firstOption (tryReduceDown newContext) lastResult)
                 | Error e -> (lastResult, Error e)
         let (opt, result) = go emptyExecutionContext (flattenParseStackCommands stackCommands) None
-        (Option.map (fun (_, ret) -> ret) opt, result)
+        let partialResult = Option.map (fun (_, ret) -> ret) opt
+        Result.cata
+            (fun r -> {environment = r.currentContext.environment; value = partialResult; draw = Map.empty; error = None;})
+            (fun e -> {environment = Map.empty; value = partialResult; draw = Map.empty; error = Some e})
+            result
