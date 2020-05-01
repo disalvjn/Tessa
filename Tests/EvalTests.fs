@@ -5,12 +5,14 @@ open Tessa.Eval.Types
 open Tessa.Eval 
 open Tessa.Lex 
 open Tessa.Parse 
+open Tessa.Language
 
 module EvalTests = 
     module Lex = Lex 
     module Parse = Parse
     module E = Eval
     module E = EvalTypes
+    module L = Language
 
     let failAndPrint a = failwith (sprintf "%A" a)
 
@@ -31,6 +33,7 @@ module EvalTests =
         List.map fst lexed |>  Parse.parseList |> fromResult |> fst
 
     let eval s = (lexAndParse s |> E.eval).value
+    let evalResult s = (lexAndParse s |> E.eval)
 
     [<Fact>]
     let ``Addition With Continuation Returning`` () = 
@@ -143,15 +146,37 @@ module EvalTests =
         let result = eval program |> fromSomeNumber
         Assert.Equal(6.0, result)
 
-    // [<Fact>]
-    // let ``Test Geometry`` () =
-    //     let program =
-    //         """
-    //         [] 'a 'b 'c 'd = (:square);
-    //         'i = (a + b |- 1/4 (d + c) @ 1/4);
-    //         """
-    //     let result = evalAll program
-    //     failAndPrint result
-    //     ()
+    [<Fact>]
+    let ``Test Complete Draw`` () = 
+        let program =
+            """
+            [] 'a 'b 'c 'd = (:square);
+            a + b !'k;
+            (c + d !'k);
+            """
+        let er = evalResult program 
+        // failAndPrint er
 
+        let expected = Map.add "k" [
+                L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0)) |> E.LSegment;
+                L.Link(L.Absolute(0.0, 1.0), L.Absolute(1.0, 1.0)) |> E.LSegment;] Map.empty
 
+        Assert.Equal<Map<string, E.GeoExp list>>(expected, er.draw)
+
+    [<Fact>]
+    let ``Test Incomplete Draw`` () = 
+        let program =
+            """
+            [] 'a 'b 'c 'd = (:square);
+            a + b !'k;
+            (c + d !'k; 'i = )
+            """
+        let er = evalResult program 
+        // failAndPrint er
+
+        let expected = Map.add "k" [
+                L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0)) |> E.LSegment;
+                L.Link(L.Absolute(0.0, 1.0), L.Absolute(1.0, 1.0)) |> E.LSegment;] Map.empty
+
+        Assert.Equal<Map<string, E.GeoExp list>>(expected, er.draw)
+        

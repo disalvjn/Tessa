@@ -24,9 +24,8 @@ module EvalTypes =
         | ApplyOp 
         | Snip
         | Intersect 
-
         | Draw
-        | Lambda
+        | Lamda
 
     // todo: Need to pipe Lex pos into Parse so I can add positions here
     type EvalError =
@@ -51,6 +50,7 @@ module EvalTypes =
         | WrongArgumentsToRotation of Exp list
         | WrongArgumentsToApplyOp of Exp list
         | WrongArgumentsToSnip of Exp list
+        | WrongArgumentsToDraw of Exp list
 
     and Exp =
         | Number of float

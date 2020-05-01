@@ -89,11 +89,13 @@ module Eval =
 
     let acceptNextOp context = updateTop (fun t -> {t with currentOp = EmptyAcceptNext;}) context 
 
+    let mergeDraws = Map.unionWith (@)
+
     let reduceStackHelper context = 
         match context.currentOp with 
-            | Empty -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.environment)
+            | Empty -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.environment, context.draw)
 
-            | EmptyAcceptNext -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.environment) 
+            | EmptyAcceptNext -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.environment, context.draw) 
 
             | Op o -> 
                 match o with 
@@ -103,23 +105,24 @@ module Eval =
                     let (newDraw, newEnv) = 
                         match message with
                         | Some(AugmentEnvironment e) -> (context.draw, Map.union e context.environment)
-                        | Some(DrawGeo(key, draws)) -> (Map.unionWith (@) context.draw (Map.add key [draws] Map.empty), context.environment)
+                        | Some(DrawGeo(key, draws)) -> (mergeDraws (Map.add key [draws] Map.empty) context.draw, context.environment)
                         | None -> (context.draw, context.environment)
-                    return (Some applied, [applied], Empty, newEnv)
+                    return (Some applied, [applied], Empty, newEnv, newDraw)
                 }
 
     let reduceStack context = monad {
-        let! (ret, args, op, env) = reduceStackHelper context.currentContext
-        return updateTop (fun t -> {t with ret = ret; arguments = args; currentOp = op; environment = env}) context
+        let! (ret, args, op, env, draw) = reduceStackHelper context.currentContext
+        return updateTop (fun t -> {t with ret = ret; arguments = args; currentOp = op; environment = env; draw = draw}) context
     }
 
-    let returnToLastContinuation ret initContext =
+    let returnToLastContinuation ret initContext topDraw =
             // return to the last continuation
         match List.tryHead initContext.continuations with 
         | None -> Error UnbalancedParenExtraClose 
         | Some continuation -> 
-            let updatedCurrentContext =  {continuation with arguments = tryCons ret continuation.arguments}
-            let newContext = {initContext with continuations = List.tail initContext.continuations; currentContext = updatedCurrentContext}
+            let newDraw = mergeDraws topDraw continuation.draw
+            let updatedCurrentContext =  {continuation with arguments = tryCons ret continuation.arguments; draw = newDraw}
+            let newContext = {initContext with continuations = List.tail initContext.continuations; currentContext = updatedCurrentContext;}
             Ok newContext
 
     let findIdentifier execContext ident = 
@@ -182,8 +185,8 @@ module Eval =
 
         | ReturnNewStack -> 
             monad {
-                let! (ret, _, _, _) = reduceStackHelper initContext.currentContext
-                return! returnToLastContinuation ret initContext
+                let! (ret, _, _, _, topDraw) = reduceStackHelper initContext.currentContext
+                return! returnToLastContinuation ret initContext topDraw
             }
 
     let firstPriorityOption newReduction lastResult = 
@@ -216,7 +219,7 @@ module Eval =
             match context.continuations with 
             // If there are no continuations, it's easy -- reduce the top and only frame. This may or may not yield a value.
             | [] -> 
-                let reduced = reduceStackHelper context.currentContext |> toOption |> Option.map (fun (ret, _, _, _) -> ret) |> join
+                let reduced = reduceStackHelper context.currentContext |> toOption |> Option.map (fun (ret, _, _, _,_) -> ret) |> join
                 Option.map (fun r -> (invPriority, r)) reduced
 
             // As an example for when we have continuations, let's use 
@@ -229,8 +232,8 @@ module Eval =
                 let fallBack = pop context |>> go (invPriority + 1) |> join
                 let withThisFrameResult = monad {
                     // Then we reduce the top frame and push to the continuation and try reducing.
-                    let! (ret, _, _, _) = reduceStackHelper context.currentContext 
-                    let! returnedContext = returnToLastContinuation ret context
+                    let! (ret, _, _, _, topDraw) = reduceStackHelper context.currentContext 
+                    let! returnedContext = returnToLastContinuation ret context topDraw
                     return go invPriority returnedContext
                 } 
 
@@ -254,10 +257,19 @@ module Eval =
                     let newReduction = tryReduceDown newContext
                     let newLastResult = firstPriorityOption newReduction lastResult
                     go newContext rest newLastResult // (firstOption (tryReduceDown newContext) lastResult)
-                | Error e -> (lastResult, Error e)
+                | Error e -> (lastResult, Error (context, e))
         let (opt, result) = go emptyExecutionContext (flattenParseStackCommands stackCommands) None
         let partialResult = Option.map (fun (_, ret) -> ret) opt
+        let makeDraw r = r.continuations |> List.map (fun c -> c.draw) |> List.fold mergeDraws r.currentContext.draw; 
         Result.cata
-            (fun r -> {environment = r.currentContext.environment; value = partialResult; draw = Map.empty; error = None;})
-            (fun e -> {environment = Map.empty; value = partialResult; draw = Map.empty; error = Some e})
+            (fun r -> {
+                environment = r.currentContext.environment; 
+                value = partialResult; 
+                draw = makeDraw r;
+                error = None;})
+            (fun (context, e) -> {
+                environment = Map.empty; 
+                value = partialResult; 
+                draw = makeDraw context;
+                error = Some e;})
             result

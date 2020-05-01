@@ -30,7 +30,7 @@ module PrimitiveProcedures =
         | P.Snip -> Snip
         | P.RecordAccess -> RecordAccess
         | P.Draw -> Draw
-        | P.Lambda -> Lambda
+        // | P.Lambda -> Lambda
 
     let addNumber arguments env =
         let numbers = List.map toNumber arguments
@@ -181,6 +181,11 @@ module PrimitiveProcedures =
         | [GeoExp(LSegment s); GeoExp(LSegment r)] -> Ok (L.Point.Intersection(L.asLine s, L.asLine r) |> LPoint |> GeoExp, None)
         | _ -> Error <| WrongArgumentsToIntersect arguments
 
+    let draw arguments env =
+        match arguments with
+        | [GeoExp shape as gs; Quote(P.Expression(P.Identifier key))] -> Ok (gs, Some <| DrawGeo (key, shape))
+        | _ -> Error <| WrongArgumentsToDraw arguments
+
     let makeSquare arguments env = 
         [L.Absolute(0.0, 1.0); L.Absolute(1.0, 1.0); L.Absolute(1.0,0.0); L.Absolute(0.0,0.0);]
         |> List.map (LPoint >> GeoExp)
@@ -203,4 +208,5 @@ module PrimitiveProcedures =
         | ApplyOp -> applyOp
         | Snip -> snip
         | Intersect -> intersect
+        | Draw -> draw
 
