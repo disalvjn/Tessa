@@ -303,76 +303,92 @@ module Solve =
 
     let stateResultBind x f =  map (fun sx -> sx >>= f) x
 
-    type SolveResult = (Result<SegmentChain,SolveError> list) * (Result<Point, SolveError> list) * SolveContext
+    let rec solvePoint (lpoint: L.Point) : State<SolveContext, Result<Point, SolveError>> = 
+        monad {
+            let! context = State.get 
+            let! found =
+                match Map.tryFind lpoint context.PointContext with
+                    | Some r -> result r
+                    | None -> 
+                        match lpoint with
+                        | L.Absolute(x, y) -> result <| Ok {x = x; y = y}
+                        | L.Operated(origin, op) -> 
+                            match op with
+                            | L.Rotate(direction, angle, center) -> 
+                                stateResultBind2 (solvePoint origin) (solvePoint center) (fun ro rc -> Ok <| rotateAround ro rc direction angle)
+                            | L.GlideAround(_) -> failwith "No support yet for GlideAround operation"
+                        | L.OnSegment(L.PointOnSegment(position, segment)) -> 
+                            monad {
+                                let! solvedSeg = solveSegment segment
+                                return solvedSeg >>= pointOnSegmentChain position |> Result.map snd 
+                            }
+                        | L.Intersection(line1, line2) -> 
+                            stateResultBind2 (solveLine line1) (solveLine line2) solvePointLineIntersect
+            return! returnPoint lpoint found
+        }
 
-    let solve ((segments: L.Segment list), (points: L.Point list)) initContext : SolveResult =
-        // todo: Improve these errors by adding additional context
-        let rec solvePoint (lpoint: L.Point) : State<SolveContext, Result<Point, SolveError>> = 
-            monad {
-                let! context = State.get 
-                let! found =
-                    match Map.tryFind lpoint context.PointContext with
-                        | Some r -> result r
-                        | None -> 
-                            match lpoint with
-                            | L.Absolute(x, y) -> result <| Ok {x = x; y = y}
-                            | L.Operated(origin, op) -> 
-                                match op with
-                                | L.Rotate(direction, angle, center) -> 
-                                    stateResultBind2 (solvePoint origin) (solvePoint center) (fun ro rc -> Ok <| rotateAround ro rc direction angle)
-                                | L.GlideAround(_) -> failwith "No support yet for GlideAround operation"
-                            | L.OnSegment(L.PointOnSegment(position, segment)) -> 
-                                monad {
-                                    let! solvedSeg = solveSegment segment
-                                    return solvedSeg >>= pointOnSegmentChain position |> Result.map snd 
-                                }
-                            | L.Intersection(line1, line2) -> 
-                                stateResultBind2 (solveLine line1) (solveLine line2) solvePointLineIntersect
-                return! returnPoint lpoint found
-            }
+    and solveSegment (segment: L.Segment) : State<SolveContext, Result<SegmentChain, SolveError>> = 
+        monad {
+            let! context = State.get 
+            let! found = 
+                match Map.tryFind segment context.SegmentContext with
+                    | Some chain -> result chain
+                    | None -> 
+                        match segment with
+                        | L.Link(p1, p2) -> 
+                            stateResultBind2 (solvePoint p1) (solvePoint p2) (fun r1 r2 -> Ok [Straight(r1, r2)])
+                        | L.Chain(s, p) -> 
+                            stateResultBind2 (solveSegment s) (solvePoint p) (fun rs rp -> Ok <| extendSegmentToPoint rs rp)
+                        | L.Concat(s1, s2) -> 
+                            stateResultBind2 (solveSegment s1) (solveSegment s2) mergeSegmentChains
+                        | L.Perpendicular(position, originSegment, endSegment) -> 
+                            stateResultBind2 (solveSegment originSegment) (solveSegment endSegment) (fun ro re -> Result.map (fun x -> [x]) <| solveSegmentPerpendicular position ro re)
+                        | L.Snipped(orig, cutAt) -> 
+                            stateResultBind2 (solveSegment orig) (solveSegment cutAt) (fun o c -> Ok <| solveSegmentSnipped o c)
+            return! returnSegment segment found
+        }
 
-        and solveSegment (segment: L.Segment) : State<SolveContext, Result<SegmentChain, SolveError>> = 
-            monad {
-                let! context = State.get 
-                let! found = 
-                    match Map.tryFind segment context.SegmentContext with
-                        | Some chain -> result chain
-                        | None -> 
-                            match segment with
-                            | L.Link(p1, p2) -> 
-                                stateResultBind2 (solvePoint p1) (solvePoint p2) (fun r1 r2 -> Ok [Straight(r1, r2)])
-                            | L.Chain(s, p) -> 
-                                stateResultBind2 (solveSegment s) (solvePoint p) (fun rs rp -> Ok <| extendSegmentToPoint rs rp)
-                            | L.Concat(s1, s2) -> 
-                                stateResultBind2 (solveSegment s1) (solveSegment s2) mergeSegmentChains
-                            | L.Perpendicular(position, originSegment, endSegment) -> 
-                                stateResultBind2 (solveSegment originSegment) (solveSegment endSegment) (fun ro re -> Result.map (fun x -> [x]) <| solveSegmentPerpendicular position ro re)
-                            | L.Snipped(orig, cutAt) -> 
-                                stateResultBind2 (solveSegment orig) (solveSegment cutAt) (fun o c -> Ok <| solveSegmentSnipped o c)
-                return! returnSegment segment found
-            }
+    and solveLine (line: L.Line) : State<SolveContext, Result<Line, SolveError>> = 
+        monad {
+            let! context = State.get 
+            let! found = 
+                match Map.tryFind line context.LineContext with 
+                    | Some l -> result l 
+                    | None ->
+                        match line with
+                        | L.Line.Perpendicular(pos, segment) -> stateResultBind (solveSegment segment) <| solveLinePerpendicular pos
+                        | L.VerticalThroughX(x, segment) -> stateResultBind (solveSegment segment) <| solveLineVerticalThroughX x 
+                        | L.HorizontalThroughY(y, segment) -> stateResultBind (solveSegment segment) <| solveLineHorizontalThroughY y 
+                        | L.ExtendSegment(segment) -> stateResultBind (solveSegment segment) <| solveLineExtendSegment 
+            return! returnLine line found
+        }
 
-        and solveLine (line: L.Line) : State<SolveContext, Result<Line, SolveError>> = 
-            monad {
-                let! context = State.get 
-                let! found = 
-                    match Map.tryFind line context.LineContext with 
-                        | Some l -> result l 
-                        | None ->
-                            match line with
-                            | L.Line.Perpendicular(pos, segment) -> stateResultBind (solveSegment segment) <| solveLinePerpendicular pos
-                            | L.VerticalThroughX(x, segment) -> stateResultBind (solveSegment segment) <| solveLineVerticalThroughX x 
-                            | L.HorizontalThroughY(y, segment) -> stateResultBind (solveSegment segment) <| solveLineHorizontalThroughY y 
-                            | L.ExtendSegment(segment) -> stateResultBind (solveSegment segment) <| solveLineExtendSegment 
-                return! returnLine line found
-            }
+    type PointSolver = L.Point -> Result<Point, SolveError>
+    type SegmentSolver = L.Segment -> Result<SegmentChain, SolveError>
+    type LineSolver = L.Line -> Result<Line, SolveError>
 
-        let solveAll : State<SolveContext, SolveResult> =
-            monad {
-                let! segs = sequence <| map solveSegment segments
-                let! ps = sequence <| map solvePoint points
-                let! finalState = State.get
-                return (segs, ps, finalState)
-            }
+    type Solvers = {
+        solveLine: LineSolver;
+        solveSegment: SegmentSolver;
+        solvePoint: PointSolver;
+    }
 
-        State.eval solveAll initContext
+    let makeSolvers () : Solvers =
+        let mutable initContext = emptySolveContext
+
+        let solvePoint p = 
+            let (solved, newContext) = State.run (solvePoint p) initContext
+            initContext <- newContext
+            solved
+
+        let solveSegment s =
+            let (solved, newContext) = State.run (solveSegment s) initContext
+            initContext <- newContext
+            solved
+
+        let solveLine l =
+            let (solved, newContext) = State.run (solveLine l) initContext
+            initContext <- newContext
+            solved
+
+        {solveLine = solveLine; solveSegment = solveSegment; solvePoint = solvePoint;}
