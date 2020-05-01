@@ -39,6 +39,17 @@ module Util =
       | (Some(_), _) -> x
       | _ -> y
 
+module Option = 
+   let cata some none option = 
+      match option with 
+      | Some s -> some s 
+      | None -> none
+
+module Map = 
+   let filterSome pred m = Map.fold (fun m k v -> Option.cata (fun s -> Map.add k s m) m (pred v)) Map.empty m
+   let mapList f m = Map.fold (fun l k v -> List.cons (f k v) l) [] m
+
+
 // http://matthewmanela.com/blog/functional-stateful-program-in-f/
 
 module Result = 

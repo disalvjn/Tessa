@@ -367,13 +367,13 @@ module Solve =
     type SegmentSolver = L.Segment -> Result<SegmentChain, SolveError>
     type LineSolver = L.Line -> Result<Line, SolveError>
 
-    type Solvers = {
-        solveLine: LineSolver;
-        solveSegment: SegmentSolver;
-        solvePoint: PointSolver;
+    type Solver = {
+        line: LineSolver;
+        segment: SegmentSolver;
+        point: PointSolver;
     }
 
-    let makeSolvers () : Solvers =
+    let makeSolvers () : Solver =
         let mutable initContext = emptySolveContext
 
         let solvePoint p = 
@@ -391,4 +391,4 @@ module Solve =
             initContext <- newContext
             solved
 
-        {solveLine = solveLine; solveSegment = solveSegment; solvePoint = solvePoint;}
+        {line = solveLine; segment = solveSegment; point = solvePoint;}
