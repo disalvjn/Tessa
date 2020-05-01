@@ -16,7 +16,7 @@ module PrimitiveProcedures =
     module C = FSharpPlus.Choice
 
     type Environment = Map<string, Exp>
-    type PrimitiveProcedureFn = (Exp list) -> Result<Exp * Environment, EvalError>
+    type PrimitiveProcedureFn = (Exp list) -> Environment -> Result<Exp * EvaluatorMessage Option, EvalError>
 
     let parsePrimitiveToEvalPrimitive = function
         | P.Assign -> Assign
@@ -39,7 +39,7 @@ module PrimitiveProcedures =
 
         if not (List.isEmpty errs) 
         then Error <| AddingNonNumbers errs 
-        else Ok(List.sum oks |> Number, env) 
+        else Ok(List.sum oks |> Number, None) 
 
     let extractSymbol = function 
         | Quote(P.Expression(P.Identifier i)) -> Ok i 
@@ -47,13 +47,13 @@ module PrimitiveProcedures =
 
     let assign arguments env = 
         match arguments with 
-        | Quote(P.Expression(P.Identifier i)) :: [a] -> Ok(a, Map.add i a env)
+        | Quote(P.Expression(P.Identifier i)) :: [a] -> Ok(a, Map.add i a Map.empty |> AugmentEnvironment |> Some)
         | Array a :: [Array b] -> 
             if (List.length a) <> (List.length b)
             then Error <| ArrayAssignmentUnequalCardinalities(a, b)
             else 
                 let asSymbols = sequence <| map extractSymbol a
-                asSymbols >>= (fun symbols -> Ok(Array b, List.zip symbols b |> List.fold (fun e (k, v) -> Map.add k v e) env))
+                asSymbols >>= (fun symbols -> Ok(Array b, List.zip symbols b |> List.fold (fun e (k, v) -> Map.add k v e) Map.empty |> AugmentEnvironment |> Some))
         | _ -> Error AssignError // todo: could make this a lot more specific
 
     let makeRecord arguments env =
@@ -78,24 +78,24 @@ module PrimitiveProcedures =
             | _ -> Error RecordBuildingError
         
         let recordMap = Result.map listToMap <| partition arguments
-        Result.map (fun record -> (Record record, env)) recordMap
+        Result.map (fun record -> (Record record, None)) recordMap
 
     let recordAccess arguments env = 
         match arguments with
         | [(Record r); (Quote(P.Expression(P.Identifier i)))] -> 
             match Map.tryFind i r with 
             | None -> Error <| RecordAccessError(i, Some <| Record r)
-            | Some v -> Ok (v, env)
+            | Some v -> Ok (v, None)
         | _ -> Error <| RecordAccessError("There aren't two arguments, or they aren't records and symbols, or I don't know -- you messed up.", None)
 
-    let arrayBuilder arguments env = Ok (Array arguments, env)
+    let arrayBuilder arguments env = Ok (Array arguments, None)
 
     let linkPoints arguments env = 
         match arguments with 
-        | [GeoExp(LPoint p); GeoExp(LPoint q)] -> Ok (L.add p q |> LSegment |> GeoExp, env)
-        | [GeoExp(LPoint p); GeoExp(LSegment s)] -> Ok (L.add p s |> LSegment |> GeoExp, env)
-        | [GeoExp(LSegment s); GeoExp(LPoint p)] -> Ok (L.add s p |> LSegment |> GeoExp, env) 
-        | [GeoExp(LSegment s); GeoExp(LSegment r)] -> Ok (L.add s r |> LSegment |> GeoExp, env)
+        | [GeoExp(LPoint p); GeoExp(LPoint q)] -> Ok (L.add p q |> LSegment |> GeoExp, None)
+        | [GeoExp(LPoint p); GeoExp(LSegment s)] -> Ok (L.add p s |> LSegment |> GeoExp, None)
+        | [GeoExp(LSegment s); GeoExp(LPoint p)] -> Ok (L.add s p |> LSegment |> GeoExp, None) 
+        | [GeoExp(LSegment s); GeoExp(LSegment r)] -> Ok (L.add s r |> LSegment |> GeoExp, None)
         | _ -> Error <| LinkingMoreThanTwoPointsOrSegments arguments 
 
     let asSegment x = 
@@ -124,14 +124,14 @@ module PrimitiveProcedures =
             monad {
                 let! p = asNumber position
                 let! s = asSegment segment
-                return (L.Line.Perpendicular(p, s) |> LLine |> GeoExp, env)
+                return (L.Line.Perpendicular(p, s) |> LLine |> GeoExp, None)
             }
         | [segment; position; endSegment;] ->
             monad {
                 let! p = asNumber position
                 let! s = asSegment segment 
                 let! es = asSegment endSegment
-                return (L.Segment.Perpendicular(p, s, es) |> LSegment |> GeoExp, env)
+                return (L.Segment.Perpendicular(p, s, es) |> LSegment |> GeoExp, None)
             }
         | _ -> Error <| WrongArgumentsToPerpendicular arguments
 
@@ -141,13 +141,13 @@ module PrimitiveProcedures =
             monad {
                 let! p = asNumber position
                 let! s = asSegment segment
-                return (L.Point.OnSegment(L.PointOnSegment(p, s)) |> LPoint |> GeoExp, env)
+                return (L.Point.OnSegment(L.PointOnSegment(p, s)) |> LPoint |> GeoExp, None)
             }
         | _ -> Error <| WrongArgumentsToAt arguments
 
     let rotation arguments env direction angle =
         match arguments with 
-        | [point] -> asPoint point >>= (fun p -> Ok (L.Rotate(direction, angle, p) |> LOperation |> GeoExp, env))
+        | [point] -> asPoint point >>= (fun p -> Ok (L.Rotate(direction, angle, p) |> LOperation |> GeoExp, None))
         | _ -> Error <| WrongArgumentsToRotation arguments
 
     let c4Clockwise arguments env =
@@ -159,7 +159,7 @@ module PrimitiveProcedures =
             monad {
                 let! p = asPoint point 
                 let! o = asOp op
-                return (L.Operated(p, o) |> LPoint |> GeoExp, env)
+                return (L.Operated(p, o) |> LPoint |> GeoExp, None)
             }
         | _ -> Error <| WrongArgumentsToApplyOp arguments
 
@@ -169,26 +169,27 @@ module PrimitiveProcedures =
             monad {
                 let! s = asSegment segment 
                 let! c = asSegment cutAt 
-                return (L.Segment.Snipped(s, c) |> LSegment |> GeoExp, env)
+                return (L.Segment.Snipped(s, c) |> LSegment |> GeoExp, None)
             }
         | _ -> Error <| WrongArgumentsToSnip arguments
 
     let intersect arguments env = 
         match arguments with 
-        | [GeoExp(LLine l); GeoExp(LLine m)] -> Ok (L.Point.Intersection(l, m) |> LPoint |> GeoExp, env)
-        | [GeoExp(LLine l); GeoExp(LSegment s)] -> Ok (L.Point.Intersection(l, L.asLine s) |> LPoint |> GeoExp, env)
-        | [GeoExp(LSegment s); GeoExp(LLine l)] -> Ok (L.Point.Intersection(L.asLine s, l) |> LPoint |> GeoExp, env)
-        | [GeoExp(LSegment s); GeoExp(LSegment r)] -> Ok (L.Point.Intersection(L.asLine s, L.asLine r) |> LPoint |> GeoExp, env)
+        | [GeoExp(LLine l); GeoExp(LLine m)] -> Ok (L.Point.Intersection(l, m) |> LPoint |> GeoExp, None)
+        | [GeoExp(LLine l); GeoExp(LSegment s)] -> Ok (L.Point.Intersection(l, L.asLine s) |> LPoint |> GeoExp, None)
+        | [GeoExp(LSegment s); GeoExp(LLine l)] -> Ok (L.Point.Intersection(L.asLine s, l) |> LPoint |> GeoExp, None)
+        | [GeoExp(LSegment s); GeoExp(LSegment r)] -> Ok (L.Point.Intersection(L.asLine s, L.asLine r) |> LPoint |> GeoExp, None)
         | _ -> Error <| WrongArgumentsToIntersect arguments
 
     let makeSquare arguments env = 
         [L.Absolute(0.0, 1.0); L.Absolute(1.0, 1.0); L.Absolute(1.0,0.0); L.Absolute(0.0,0.0);]
         |> List.map (LPoint >> GeoExp)
         |> Array
-        |> flip tuple2 env 
+        |> flip tuple2 None
         |> Ok
 
-    let lookupPrimitiveProcedure = function
+    let lookupPrimitiveProcedure (p: PrimitiveProcedure) : PrimitiveProcedureFn = 
+        match p with
         | AddNumber -> addNumber
         | Assign -> assign
         | RecordBuilder -> makeRecord

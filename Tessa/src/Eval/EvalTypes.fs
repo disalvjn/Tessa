@@ -82,3 +82,7 @@ module EvalTypes =
         | Empty 
         | EmptyAcceptNext
         | Op of Operation
+
+    type EvaluatorMessage =
+        | AugmentEnvironment of Map<string, Exp>
+        | DrawGeo of string * GeoExp

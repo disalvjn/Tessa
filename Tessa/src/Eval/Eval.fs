@@ -17,10 +17,13 @@ module Eval =
     open EvalTypes
     open PrimitiveProcedures
 
+    type DrawMap = Map<string, GeoExp list>
+
     type StackExecutionContext = {
         currentOp: OperationState;
         arguments: Exp list;
-        environment: Map<string, Exp>;
+        environment: Environment;
+        draw: DrawMap;
         ret: Exp option;
     }
 
@@ -34,12 +37,12 @@ module Eval =
 
     type EvalResult = {
         value: Exp option;
-        environment: Map<string, Exp>;
-        draw: Map<string, GeoExp list>;
+        environment: Environment;
+        draw: DrawMap;
         error: EvalError option;
     }
 
-    let startingEnvironment = 
+    let startingEnvironment : Environment= 
         Map.empty 
         |> Map.add "plus" (PrimitiveProcedure AddNumber)
         |> Map.add "square" (PrimitiveProcedure Square)
@@ -49,6 +52,7 @@ module Eval =
         currentOp = Empty;
         arguments = [];
         environment = startingEnvironment;
+        draw = Map.empty;
         ret = None;}
 
     let emptyExecutionContext = {
@@ -95,7 +99,12 @@ module Eval =
                 match o with 
                 | Primitive p -> monad {
                     let fn = lookupPrimitiveProcedure p
-                    let! (applied, newEnv) = fn (List.rev context.arguments) context.environment
+                    let! (applied, message) = fn (List.rev context.arguments) context.environment
+                    let (newDraw, newEnv) = 
+                        match message with
+                        | Some(AugmentEnvironment e) -> (context.draw, Map.union e context.environment)
+                        | Some(DrawGeo(key, draws)) -> (Map.unionWith (@) context.draw (Map.add key [draws] Map.empty), context.environment)
+                        | None -> (context.draw, context.environment)
                     return (Some applied, [applied], Empty, newEnv)
                 }
 
