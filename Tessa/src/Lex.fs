@@ -57,7 +57,7 @@ module Lex =
         ("\.", always <| PrimitiveProc RecordAccess);
         ("\!", always <| PrimitiveProc Draw);
         ("\s", always WhiteSpace);
-        ("[a-zA-Z{}!@#$%^&*-+~=\[\]]+[\d]*", Identifier);
+        ("[a-zA-Z]+[a-zA-Z\-\d]*", Identifier);
         ("[\d]+/*[\d]*", fun s -> s.Split("/") |> (fun arr -> Fraction (int arr.[0], if arr.Length = 1 then 1 else int arr.[1])));]
 
     let advanceLex row col str = 

@@ -33,3 +33,10 @@ module LexTests =
             Lex.Identifier("a"); Lex.PrimitiveProc(Lex.RecordAccess); Lex.Identifier("b"); Lex.EndNestedExpression; Lex.EndNestedExpression;]
         Assert.Equal<Lex.Token list>(lexed, expected);
 
+    [<Fact>]
+    let ``Lex identifier with dash`` () =
+        let s = "c4-clockwise"
+        let lexed = Lex.lex s |> fromResult |> List.map fst
+        let expected = [Lex.Identifier("c4-clockwise")] 
+        Assert.Equal<Lex.Token list>(expected, lexed)
+
