@@ -30,6 +30,8 @@ module App =
             ctx.fillStyle <- !^ options.color
             ctx.closePath()
             ctx.fill()
+            ctx.font <- "18px Arial";
+            ctx.fillText(options.label, point.x- 10.0, point.y - 5.0)
         | V.DrawSegment(segment, options) -> 
             ctx.beginPath()
             ctx.moveTo(segment.orig.x, segment.orig.y)
@@ -43,7 +45,7 @@ module App =
         | Ok o -> o 
         | Error e -> failAndPrint e
 
-    let go (ctx: Browser.Types.CanvasRenderingContext2D) program = 
+    let go (ctx: Browser.Types.CanvasRenderingContext2D) (writeError: obj -> unit) program = 
         try 
             let lexed = Lex.lex program 
             // printf "%A" lexed 
@@ -52,19 +54,21 @@ module App =
             // printf "%A" parsed
 
             let result = parsed |> fromResult |> fst |> E.eval
+            Option.iter writeError result.error
 
             // printf "%A" result
 
             let targets = {V.height = 500.0; V.width = 500.0; V.topLeft = (200.0, 200.0)}
 
             let (drawable, errs) = V.drawableFromEvalResult result (S.makeSolvers ()) targets
+            List.iter writeError errs
             // printf "%A" drawable
             // printf "%A" errs
             ctx.clearRect(0.0, 0.0, 1000.0, 1000.0)
 
             List.iter (draw ctx) drawable
         with 
-            | _ -> ()
+            | e -> writeError e
 
     // Mutable variable to count the number of times we clicked the button
     // let mutable count = 0
@@ -84,11 +88,13 @@ module App =
     // go ctx program
 
     let textArea =  window.document.getElementById "text" :?> Browser.Types.HTMLTextAreaElement
+    let mutable errorTextArea = window.document.getElementById "errors" :?> Browser.Types.HTMLTextAreaElement
     textArea.onkeydown <- fun event -> 
+        errorTextArea.value <- ""
         if event.keyCode = float 192 
         then 
             event.preventDefault ()
-            go ctx textArea.value
+            go ctx (fun e -> (errorTextArea.value <- errorTextArea.value + "\n" + sprintf "%A" e)) textArea.value
         else ()
 
     // Get a reference to our button and cast the Element to an HTMLButtonElement

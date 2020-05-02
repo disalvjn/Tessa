@@ -1,24 +1,37 @@
 /* Split the screen in half */
 .split {
-  height: 100%;
   /* width: 50%; */
   position: fixed;
   z-index: 1;
-  top: 0;
   overflow-x: hidden;
-  padding-top: 20px;
 }
 
 /* Control the left side */
 .left {
-   width: 70%;
+  height: 100%;
+  width: 70%;
   left: 0;
+  top: 0;
+  padding-top: 20px;
+  border: 1px blue solid;
 }
 
 /* Control the right side */
-.right {
+.right-top {
   width: 30%;
+  height: 60%;
   right: 0;
+  top: 0;
+  border: 1px green solid;
+  padding-top: 20px;
+}
+.right-bottom {
+  width: 30%;
+  height: 40%;
+  right: 0;
+  bottom: 0;
+  border: 1px red solid;
+  padding-bottom: 20px;
 }
 
 #text {
