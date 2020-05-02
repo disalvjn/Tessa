@@ -58,7 +58,7 @@ module App =
 
             // printf "%A" result
 
-            let targets = {V.height = 500.0; V.width = 500.0; V.topLeft = (200.0, 200.0)}
+            let targets = {V.boundingHeight = 500.0; V.boundingWidth = 500.0; V.topLeft = (200.0, 200.0); V.xMax = 1000.0; V.yMax = 1000.0;}
 
             let (drawable, errs) = V.drawableFromEvalResult result (S.makeSolvers ()) targets
             List.iter writeError errs

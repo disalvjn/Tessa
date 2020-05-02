@@ -77,6 +77,8 @@ module View =
         xMax: float;
         yMin: float;
         yMax: float;
+        absoluteXMax: float; 
+        absoluteYMax: float;
     }
 
     let extractAbsolutes (evalResult: E.EvalResult) = 
@@ -98,8 +100,8 @@ module View =
         // todo: if just 0 or 1 points or all colinear ugh
         // we need three non-colinear points for a plane.
         let (minX, maxX, minY, maxY) = bounds absolutePoints
-        let xScale = float targets.width / (maxX - minX)
-        let yScale = float targets.height / (maxY - minY)
+        let xScale = float targets.boundingWidth / (maxX - minX)
+        let yScale = float targets.boundingHeight / (maxY - minY)
         let scale (x, y) = (xScale * x,  yScale * y)
 
         let newAbsolutes = List.map scale absolutePoints 
@@ -108,7 +110,8 @@ module View =
         let yTrans = (snd targets.topLeft) - newMinY
 
         {xScale = xScale; yScale = yScale; xTrans = xTrans; yTrans = yTrans;
-        xMin = newMinX; xMax = newMaxX; yMin = newMinY; yMax = newMaxY;}
+        xMin = newMinX; xMax = newMaxX; yMin = newMinY; yMax = newMaxY;
+        absoluteXMax = targets.xMax; absoluteYMax = targets.yMax;}
 
     let applyPointTransform trans (point: S.Point) = 
         {x = trans.xScale * point.x + trans.xTrans; y = trans.yScale * point.y + trans.yTrans;}
@@ -121,11 +124,12 @@ module View =
         match line with 
         | S.Vertical(x) ->
             let newX = trans.xScale * x + trans.xTrans 
-            {orig = {x = newX; y = trans.yMin;}; dest = {x = newX; y = trans.yMax;}}
+            {orig = {x = newX; y = 0.0;}; dest = {x = newX; y = trans.absoluteYMax;}}
         | S.Sloped(point, m) ->
             let newPoint = applyPointTransform trans point 
             let y x =  m * (x - newPoint.x) + newPoint.y
-            {orig = {x = trans.xMin; y = y trans.xMin;}; dest = {x = trans.xMax; y = y trans.xMax;}}
+            // todo: need to solve for x that has max y
+            {orig = {x = trans.xMin; y = y 0.0;}; dest = {x = trans.xMax; y = y trans.yMax;}}
 
 
     // todo: Somehow need a bounding box 

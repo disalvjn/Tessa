@@ -30,8 +30,10 @@ module ViewTypes =
 
     type DrawTargets = {
         topLeft: float * float; 
-        width: float;
-        height: float;
+        boundingWidth: float;
+        boundingHeight: float;
+        xMax: float; 
+        yMax: float;
     }
 
     type LineStyle = 

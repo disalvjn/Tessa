@@ -10,7 +10,7 @@ module Lex =
 
     type Pos = {row: int; col: int;}
 
-    type LexError = Pos
+    type LexError = LexError of Pos
 
     type PrimitiveProcToken = 
         | ArrayBuilder // []
@@ -73,7 +73,7 @@ module Lex =
                 |> somes
                 |> List.tryHead
             match someMatch with 
-            | None -> Error {row = row; col = col}
+            | None -> Error <| LexError {row = row; col = col}
 
             | Some (m, tok) -> 
                 let lastnewLine = m.LastIndexOf("\n")
