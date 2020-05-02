@@ -181,6 +181,7 @@ module PrimitiveProcedures =
     let draw arguments env =
         match arguments with
         | [GeoExp shape as gs; Quote(P.Expression(P.Identifier key))] -> Ok (gs, Some <| DrawGeo (key, shape))
+        | [GeoExp shape as gs] -> Ok(gs, Some <| DrawGeo ("_GLOBAL", shape))
         | _ -> Error <| WrongArgumentsToDraw arguments
 
     let makeSquare arguments env = 
