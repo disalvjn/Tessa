@@ -1,20 +1,31 @@
-/* https://stackoverflow.com/a/49340510/10558918 */
+/* Split the screen in half */
+.split {
+  height: 100%;
+  /* width: 50%; */
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  overflow-x: hidden;
+  padding-top: 20px;
+}
 
-html,body{
-   height:100%;
-   overflow:hidden;
-   margin:0}
-   
-   
-#container{
-   height:calc(100% - 20px);
-   border:10px solid black;}
-   
-#canvas{
-   height: calc(70% - 10px);   
-   border:5px solid black}
-   
-#text{
-   height:calc(30% - 10px);   
-   width: 100%;
-   border:5px solid "#f2f2f2f"}
+/* Control the left side */
+.left {
+   width: 70%;
+  left: 0;
+}
+
+/* Control the right side */
+.right {
+  width: 30%;
+  right: 0;
+}
+
+#text {
+   font-size: 18px;
+}
+
+#canvas {
+   height: 1000px;
+   width: 1000px;
+}

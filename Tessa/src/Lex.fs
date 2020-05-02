@@ -10,7 +10,7 @@ module Lex =
 
     type Pos = {row: int; col: int;}
 
-    type LexError = string * Pos
+    type LexError = Pos
 
     type PrimitiveProcToken = 
         | ArrayBuilder // []
@@ -67,12 +67,13 @@ module Lex =
             let someMatch = 
                 matchesToTokens 
                 |> List.map (fun (regex, toToken) -> 
-                    let m = Regex.Match(str, "^(" + regex + ")").Value
-                    if m = "" then None else Some (m, toToken m))
+                    let m = Regex.Match(str, "^(" + regex + ")")
+                    if isNull m || m.Value = "" || isNull m.Value then None else Some (m.Value, toToken m.Value))
                 |> somes
                 |> List.tryHead
             match someMatch with 
-            | None -> Error <| LexError ("don't know what to do with starting character: " + str, {row = row; col = col})
+            | None -> Error {row = row; col = col}
+
             | Some (m, tok) -> 
                 let lastnewLine = m.LastIndexOf("\n")
                 let (nextRow, nextCol) = if lastnewLine = -1 then (row, col + m.Length) else (row + 1, m.Length - lastnewLine)

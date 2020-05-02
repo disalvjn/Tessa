@@ -92,7 +92,7 @@ module View =
             let minX = List.minBy fst points |> fst
             let maxX = List.maxBy fst points |> fst
             let minY = List.minBy snd points |> snd
-            let maxY = List.minBy snd points |> snd
+            let maxY = List.maxBy snd points |> snd
             (minX, maxX, minY, maxY)
 
         // todo: if just 0 or 1 points or all colinear ugh
@@ -130,8 +130,8 @@ module View =
 
     // todo: Somehow need a bounding box 
     let toDrawable trans view = 
-        let poptions label style = {color = "#ffffff"; label = label; pointStyle = style}
-        let soptions label style = {color = "#ffffff"; label = label; lineStyle = style; lineWidth = Medium; accentuatePoints = false}
+        let poptions label style = {color = "#004080"; label = label; pointStyle = style}
+        let soptions label style = {color = "#004080"; label = label; lineStyle = style; lineWidth = Medium; accentuatePoints = false}
         match (view.viewShape, view.viewMode) with 
         | (ViewPoint p, Preview label) -> [DrawPoint(applyPointTransform trans p, poptions label Filled)]
         | (ViewPoint p, Drawn label) -> [DrawPoint(applyPointTransform trans p, poptions label Hollow)]
@@ -148,6 +148,7 @@ module View =
         let (views, viewErrs) = viewsFromEvalResult evalResult solve 
         let absolutePoints = extractAbsolutes evalResult
         let trans = pointTranslation targets absolutePoints
+        // printf "%A" trans
         let drawables = List.collect (toDrawable trans) views
         (drawables, viewErrs)
 

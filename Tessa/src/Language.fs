@@ -28,6 +28,7 @@ module Language =
     and Segment = 
         | Link of Point * Point
         | Chain of Segment * Point
+        | ReverseChain of Point * Segment
         | Concat of Segment * Segment
         | Perpendicular of  position: double * originSegment: Segment * endSegment: Segment
         | Snipped of original: Segment * cutAt: Segment

@@ -21,51 +21,75 @@ module App =
     open Browser.Dom
     open Fable.Core.JsInterop
 
-    let draw (canvas: Browser.Types.CanvasRenderingContext2D) (shape: V.DrawShape) =
+    let draw (ctx: Browser.Types.CanvasRenderingContext2D) (shape: V.DrawShape) =
+        // printf "%A" shape
         match shape with 
         | V.DrawPoint(point, options) ->
-            canvas.beginPath()
-            canvas.arc(point.x, point.y, 10.0, 0.0, 0.0)
-            canvas.fillStyle <- !^ options.color
-            canvas.fill()
+            ctx.beginPath()
+            ctx.arc(point.x, point.y, 5.0, 0.0, 3.141592 * 2.0)
+            ctx.fillStyle <- !^ options.color
+            ctx.closePath()
+            ctx.fill()
         | V.DrawSegment(segment, options) -> 
-            canvas.beginPath()
-            canvas.moveTo(segment.orig.x, segment.orig.y)
-            canvas.lineTo(segment.dest.x, segment.dest.y)
-            canvas.closePath()
-            canvas.fillStyle <- !^ options.color
-            canvas.fill()
+            ctx.beginPath()
+            ctx.moveTo(segment.orig.x, segment.orig.y)
+            ctx.lineTo(segment.dest.x, segment.dest.y)
+            ctx.closePath()
+            ctx.strokeStyle <- !^ options.color
+            ctx.stroke()
+            // ctx.fill()
 
     let fromResult = function 
         | Ok o -> o 
         | Error e -> failAndPrint e
 
-    let go canvas program = 
-        let lexAndParse s = 
-            let lexed = fromResult <| Lex.lex s 
-            List.map fst lexed |>  Parse.parseList |> fromResult |> fst
-        
-        let parsed = lexAndParse program
+    let go (ctx: Browser.Types.CanvasRenderingContext2D) program = 
+        try 
+            let lexed = Lex.lex program 
+            // printf "%A" lexed 
 
-        let result = E.eval parsed
+            let parsed = lexed |> fromResult |> List.map fst |> Parse.parseList
+            // printf "%A" parsed
 
-        let targets = {V.height = 1000.0; V.width = 1000.0; V.topLeft = (50.0, 50.0)}
+            let result = parsed |> fromResult |> fst |> E.eval
 
-        let (drawable, errs) = V.drawableFromEvalResult result (S.makeSolvers ()) targets
+            // printf "%A" result
 
-        List.iter (draw canvas) drawable
+            let targets = {V.height = 500.0; V.width = 500.0; V.topLeft = (200.0, 200.0)}
+
+            let (drawable, errs) = V.drawableFromEvalResult result (S.makeSolvers ()) targets
+            // printf "%A" drawable
+            // printf "%A" errs
+            ctx.clearRect(0.0, 0.0, 1000.0, 1000.0)
+
+            List.iter (draw ctx) drawable
+        with 
+            | _ -> ()
 
     // Mutable variable to count the number of times we clicked the button
     // let mutable count = 0
+    // https://github.com/fable-compiler/fable2-samples/blob/master/browser/src/App.fs
+    let mutable myCanvas : Browser.Types.HTMLCanvasElement = unbox window.document.getElementById "canvas" // myCanvas is defined in public/index.html 
+    myCanvas.width <- float 1000 
+    myCanvas.height <- float 1000
+    let ctx = myCanvas.getContext_2d()
 
-    let canvas = document.querySelector(".canvas") :?> Browser.Types.CanvasRenderingContext2D
-
+    // Test case 1: Value is an Array, so we don't catch GeoExp!! let program = "[] 'a 'b 'c 'd = (:square)"
     let program = 
         """
-        [] 'a 'b 'c 'd = (:square);
-        """
+        [] 'a 'b 'c 'd = (:square); 
+        a + b + c + d + a ! 'k;
+        """ 
 
-    go canvas program
+    // go ctx program
+
+    let textArea =  window.document.getElementById "text" :?> Browser.Types.HTMLTextAreaElement
+    textArea.onkeydown <- fun event -> 
+        if event.keyCode = float 192 
+        then 
+            event.preventDefault ()
+            go ctx textArea.value
+        else ()
 
     // Get a reference to our button and cast the Element to an HTMLButtonElement
     // let myButton = document.querySelector(".my-button") :?> Browser.Types.HTMLButtonElement

@@ -89,10 +89,10 @@ module PrimitiveProcedures =
 
     let linkPoints arguments env = 
         match arguments with 
-        | [GeoExp(LPoint p); GeoExp(LPoint q)] as a -> Ok (L.add p q |> LSegment |> GeoExp, None)
-        | [GeoExp(LPoint p); GeoExp(LSegment s)] -> Ok (L.add p s |> LSegment |> GeoExp, None)
-        | [GeoExp(LSegment s); GeoExp(LPoint p)] -> Ok (L.add s p |> LSegment |> GeoExp, None) 
-        | [GeoExp(LSegment s); GeoExp(LSegment r)] -> Ok (L.add s r |> LSegment |> GeoExp, None)
+        | [GeoExp(LPoint p); GeoExp(LPoint q)] as a -> Ok (L.Link (p, q) |> LSegment |> GeoExp, None)
+        | [GeoExp(LPoint p); GeoExp(LSegment s)] -> Ok (L.ReverseChain(p, s) |> LSegment |> GeoExp, None)
+        | [GeoExp(LSegment s); GeoExp(LPoint p)] -> Ok (L.Chain(s, p) |> LSegment |> GeoExp, None) 
+        | [GeoExp(LSegment s); GeoExp(LSegment r)] -> Ok (L.Concat(s, r) |> LSegment |> GeoExp, None)
         | _ -> Error <| LinkingMoreThanTwoPointsOrSegments arguments 
 
     let asSegment x = 

@@ -263,6 +263,10 @@ module Solve =
         let (_, lastPointInChain) = origDest <| List.last chain
         chain @ [Straight(lastPointInChain, point)]
 
+    let prependPointToSegment point chain =
+        let (firstPointInChain, _) = origDest <| List.head chain
+        Straight(point, firstPointInChain) :: chain
+
     type SolveContext = 
         {PointContext: Map<L.Point, Result<Point, SolveError>>; 
         SegmentContext: Map<L.Segment, Result<SegmentChain, SolveError>>; 
@@ -336,6 +340,8 @@ module Solve =
                             stateResultBind2 (solvePoint p1) (solvePoint p2) (fun r1 r2 -> Ok [Straight(r1, r2)])
                         | L.Chain(s, p) -> 
                             stateResultBind2 (solveSegment s) (solvePoint p) (fun rs rp -> Ok <| extendSegmentToPoint rs rp)
+                        | L.ReverseChain(p, s) ->
+                            stateResultBind2 (solvePoint p) (solveSegment s) (fun rp rs -> Ok <| prependPointToSegment rp rs)
                         | L.Concat(s1, s2) -> 
                             stateResultBind2 (solveSegment s1) (solveSegment s2) mergeSegmentChains
                         | L.Perpendicular(position, originSegment, endSegment) -> 
