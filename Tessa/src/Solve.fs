@@ -5,14 +5,11 @@ open FSharp.Collections
 open Tessa.Language 
 open Tessa.Util
 open System.Collections.Generic
-open FSharpPlus
-open FSharpPlus.Data
 
 // todo: Split into more submodules. Solve.Types, Solve.Line (for line solver) etc.?
 module Solve =
     module L = Language
     open Util
-    module State = FSharpPlus.Data.State
 
     type Point = {x: double; y: double;}
     // https://stackoverflow.com/a/26565842/10558918
@@ -128,7 +125,7 @@ module Solve =
             | Some(Straight(orig, dest) as segment) -> Ok <| getOnSegment segment orig dest
 
     let solveLinePerpendicular (location: Location) (segmentChain: SegmentChain) = 
-        monad {
+        result {
             let! segmentPoint = pointOnSegmentChain location segmentChain
             return 
                 match segmentPoint with
@@ -208,7 +205,7 @@ module Solve =
             match segment with
             | Straight(orig, dest) -> pointBoundedBy point orig dest
 
-        let segmentsIntersect s1 s2 =  Result.fromOk None <| monad {
+        let segmentsIntersect s1 s2 =  Result.fromOk None <| result {
             let! extend1 = solveLineExtendSegment [s1]
             let! extend2 = solveLineExtendSegment [s2] 
             let! intersect = solvePointLineIntersect extend1 extend2
@@ -234,12 +231,12 @@ module Solve =
         search original
 
     let solveSegmentPerpendicular position (origSegment: SegmentChain) (endSegment: SegmentChain) =
-        monad {
+        result {
             let! (_, startPoint) = pointOnSegmentChain position origSegment
             let! perpLine = solveLinePerpendicular position origSegment
             let intersectionPoints = 
                 endSegment 
-                |> List.map (fun x -> Ok [x] >>= solveLineExtendSegment >>= (solvePointLineIntersect perpLine))
+                |> List.map (fun x -> Ok [x] |> Result.bind solveLineExtendSegment |> Result.bind (solvePointLineIntersect perpLine))
                 |> okays
             return! 
                 match intersectionPoints with
@@ -274,19 +271,19 @@ module Solve =
     let emptySolveContext = {PointContext = Map.empty; SegmentContext = Map.empty; LineContext = Map.empty;}
 
     let returnPoint orig solved = 
-        monad {
+        state {
             let! _ = State.modify <| fun context -> {context with PointContext = Map.add orig solved context.PointContext}
             return solved
         }
 
     let returnSegment orig solved = 
-        monad {
+        state {
             let! _ = State.modify <| fun context -> {context with SegmentContext = Map.add orig solved context.SegmentContext}
             return solved
         }
 
     let returnLine orig solved = 
-        monad {
+        state {
             let! _ = State.modify <| fun context -> {context with LineContext = Map.add orig solved context.LineContext}
             return solved
         }
@@ -295,32 +292,32 @@ module Solve =
         (x: State<SolveContext, Result<'a, 'e>>) 
         (y: State<SolveContext, Result<'b, 'e>>) 
         (f: 'a -> 'b -> Result<'c, 'e>) : State<SolveContext, Result<'c, 'e>> =  
-        monad {
+        state {
             let! xs = x 
             let! ys = y
             return Result.bind2 xs ys f
         } 
 
-    let stateResultBind x f =  map (fun sx -> sx >>= f) x
+    let stateResultBind x f =  State.map (fun sx -> Result.bind f sx) x
 
     let rec solvePoint (lpoint: L.Point) : State<SolveContext, Result<Point, SolveError>> = 
-        monad {
+        state {
             let! context = State.get 
             let! found =
                 match Map.tryFind lpoint context.PointContext with
-                    | Some r -> result r
+                    | Some r -> State.result r
                     | None -> 
                         match lpoint with
-                        | L.Absolute(x, y) -> result <| Ok {x = x; y = y}
+                        | L.Absolute(x, y) -> State.result <| Ok {x = x; y = y}
                         | L.Operated(origin, op) -> 
                             match op with
                             | L.Rotate(direction, angle, center) -> 
                                 stateResultBind2 (solvePoint origin) (solvePoint center) (fun ro rc -> Ok <| rotateAround ro rc direction angle)
                             | L.GlideAround(_) -> failwith "No support yet for GlideAround operation"
                         | L.OnSegment(L.PointOnSegment(position, segment)) -> 
-                            monad {
+                            state {
                                 let! solvedSeg = solveSegment segment
-                                return solvedSeg >>= pointOnSegmentChain position |> Result.map snd 
+                                return solvedSeg |> Result.bind (pointOnSegmentChain position) |> Result.map snd 
                             }
                         | L.Intersection(line1, line2) -> 
                             stateResultBind2 (solveLine line1) (solveLine line2) solvePointLineIntersect
@@ -328,11 +325,11 @@ module Solve =
         }
 
     and solveSegment (segment: L.Segment) : State<SolveContext, Result<SegmentChain, SolveError>> = 
-        monad {
+        state {
             let! context = State.get 
             let! found = 
                 match Map.tryFind segment context.SegmentContext with
-                    | Some chain -> result chain
+                    | Some chain -> State.result chain
                     | None -> 
                         match segment with
                         | L.Link(p1, p2) -> 
@@ -349,11 +346,11 @@ module Solve =
         }
 
     and solveLine (line: L.Line) : State<SolveContext, Result<Line, SolveError>> = 
-        monad {
+        state {
             let! context = State.get 
             let! found = 
                 match Map.tryFind line context.LineContext with 
-                    | Some l -> result l 
+                    | Some l -> State.result l 
                     | None ->
                         match line with
                         | L.Line.Perpendicular(pos, segment) -> stateResultBind (solveSegment segment) <| solveLinePerpendicular pos

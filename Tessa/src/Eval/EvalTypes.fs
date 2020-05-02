@@ -86,3 +86,13 @@ module EvalTypes =
     type EvaluatorMessage =
         | AugmentEnvironment of Map<string, Exp>
         | DrawGeo of string * GeoExp
+
+    type DrawMap = Map<string, GeoExp list>
+    type Environment = Map<string, Exp>
+
+    type EvalResult = {
+        value: Exp option;
+        environment: Environment;
+        draw: DrawMap;
+        error: EvalError option;
+    }

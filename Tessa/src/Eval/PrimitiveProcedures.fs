@@ -4,7 +4,6 @@ open Tessa.Language
 open Tessa.Eval.Types
 open Tessa.Util
 open Tessa.Parse
-open FSharpPlus
 
 // TODO: could make error handling in this significantly better by having recursive EvalErrors and building stack traces.
 // Plus, pipe Lex positional info into Parse and use that in the evaluator.
@@ -13,9 +12,7 @@ module PrimitiveProcedures =
     open Util
     module P = Parse
     module L = Language
-    module C = FSharpPlus.Choice
 
-    type Environment = Map<string, Exp>
     type PrimitiveProcedureFn = (Exp list) -> Environment -> Result<Exp * EvaluatorMessage Option, EvalError>
 
     let parsePrimitiveToEvalPrimitive = function
@@ -52,8 +49,8 @@ module PrimitiveProcedures =
             if (List.length a) <> (List.length b)
             then Error <| ArrayAssignmentUnequalCardinalities(a, b)
             else 
-                let asSymbols = sequence <| map extractSymbol a
-                asSymbols >>= (fun symbols -> Ok(Array b, List.zip symbols b |> List.fold (fun e (k, v) -> Map.add k v e) Map.empty |> AugmentEnvironment |> Some))
+                let asSymbols = Result.sequence <| List.map extractSymbol a
+                asSymbols |> Result.bind (fun symbols -> Ok(Array b, List.zip symbols b |> List.fold (fun e (k, v) -> Map.add k v e) Map.empty |> AugmentEnvironment |> Some))
         | _ -> Error AssignError // todo: could make this a lot more specific
 
     let makeRecord arguments env =
@@ -64,7 +61,7 @@ module PrimitiveProcedures =
             | Some exp -> Ok (lookupSym, exp)
 
         let rec partition args = 
-            let recurseIfOk (rest: Exp list) (resultVal: Result<string * Exp, EvalError>) = monad {
+            let recurseIfOk (rest: Exp list) (resultVal: Result<string * Exp, EvalError>) = result {
                 let! trueResult = resultVal 
                 let! restResult = partition rest 
                 return trueResult :: restResult
@@ -92,7 +89,7 @@ module PrimitiveProcedures =
 
     let linkPoints arguments env = 
         match arguments with 
-        | [GeoExp(LPoint p); GeoExp(LPoint q)] -> Ok (L.add p q |> LSegment |> GeoExp, None)
+        | [GeoExp(LPoint p); GeoExp(LPoint q)] as a -> Ok (L.add p q |> LSegment |> GeoExp, None)
         | [GeoExp(LPoint p); GeoExp(LSegment s)] -> Ok (L.add p s |> LSegment |> GeoExp, None)
         | [GeoExp(LSegment s); GeoExp(LPoint p)] -> Ok (L.add s p |> LSegment |> GeoExp, None) 
         | [GeoExp(LSegment s); GeoExp(LSegment r)] -> Ok (L.add s r |> LSegment |> GeoExp, None)
@@ -121,13 +118,13 @@ module PrimitiveProcedures =
     let perpendicular arguments env =
         match arguments with 
         | [segment; position;] -> 
-            monad {
+            result {
                 let! p = asNumber position
                 let! s = asSegment segment
                 return (L.Line.Perpendicular(p, s) |> LLine |> GeoExp, None)
             }
         | [segment; position; endSegment;] ->
-            monad {
+            result {
                 let! p = asNumber position
                 let! s = asSegment segment 
                 let! es = asSegment endSegment
@@ -138,7 +135,7 @@ module PrimitiveProcedures =
     let at arguments env = 
         match arguments with
         | [segment; position;] ->
-            monad {
+            result {
                 let! p = asNumber position
                 let! s = asSegment segment
                 return (L.Point.OnSegment(L.PointOnSegment(p, s)) |> LPoint |> GeoExp, None)
@@ -147,7 +144,7 @@ module PrimitiveProcedures =
 
     let rotation arguments env direction angle =
         match arguments with 
-        | [point] -> asPoint point >>= (fun p -> Ok (L.Rotate(direction, angle, p) |> LOperation |> GeoExp, None))
+        | [point] -> asPoint point |> Result.bind (fun p -> Ok (L.Rotate(direction, angle, p) |> LOperation |> GeoExp, None))
         | _ -> Error <| WrongArgumentsToRotation arguments
 
     let c4Clockwise arguments env =
@@ -156,7 +153,7 @@ module PrimitiveProcedures =
     let applyOp arguments env = 
         match arguments with 
         | [point; op;] -> 
-            monad {
+            result {
                 let! p = asPoint point 
                 let! o = asOp op
                 return (L.Operated(p, o) |> LPoint |> GeoExp, None)
@@ -166,7 +163,7 @@ module PrimitiveProcedures =
     let snip arguments env =
         match arguments with 
         | [segment; cutAt;] ->
-            monad {
+            result {
                 let! s = asSegment segment 
                 let! c = asSegment cutAt 
                 return (L.Segment.Snipped(s, c) |> LSegment |> GeoExp, None)

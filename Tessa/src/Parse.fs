@@ -1,7 +1,6 @@
 namespace Tessa.Parse
 open Tessa.Lex
 open Tessa.Util
-open FSharpPlus
 
 module Parse = 
     module Lex = Lex
@@ -41,14 +40,14 @@ module Parse =
             | [] -> Ok ([], [])
             | Lex.EndNestedExpression :: rest -> Ok([], rest)
             | Lex.BeginNestedExpression :: rest -> 
-                monad {
+                result {
                     let! (nested, restRest) = parseList rest
                     let command = NewStack nested
                     let! (parsedRest, restRestRest) = parseList restRest 
                     return (command :: parsedRest, restRestRest)
                 }
             | rest ->  
-                monad {
+                result {
                     let! (parsed, restOfRest) = parse rest
                     let! (parsedRest, restOfRestOfRest) = parseList restOfRest
                     return (tryCons parsed parsedRest, restOfRestOfRest)
@@ -57,7 +56,7 @@ module Parse =
     and parse (tokens: Lex.Token list) : Result<(StackCommand option * Lex.Token list), ParseError> = 
         match tokens with
         | Lex.QuotePrimitive :: rest -> 
-            monad {
+            result {
                 let! (nextExpr, restOfRest) = parse rest
                 return (Option.map (Quote >> Expression) nextExpr, restOfRest)
             }
@@ -81,7 +80,7 @@ module Parse =
             Ok (NewStack [] |> Some, rest)
 
         | Lex.BeginNestedExpression :: rest -> 
-            parseList rest >>= (fun (parsed, restOfRest) -> Ok (Some <| NewStack parsed, restOfRest))
+            parseList rest |> Result.bind (fun (parsed, restOfRest) -> Ok (Some <| NewStack parsed, restOfRest))
 
         | Lex.EndNestedExpression :: rest -> 
             Error ExtraEndingParen

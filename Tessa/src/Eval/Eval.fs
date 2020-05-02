@@ -4,7 +4,6 @@ open Tessa.Language
 open Tessa.Solve
 open Tessa.Parse
 open Tessa.Util
-open FSharpPlus
 open Tessa.Eval.Types
 open Tessa.Eval.PrimitiveProcedures
 
@@ -16,8 +15,6 @@ module Eval =
     open Util
     open EvalTypes
     open PrimitiveProcedures
-
-    type DrawMap = Map<string, GeoExp list>
 
     type StackExecutionContext = {
         currentOp: OperationState;
@@ -33,13 +30,6 @@ module Eval =
         currentContext: StackExecutionContext;
         solveContext: S.SolveContext;
         reduction: Exp option;
-    }
-
-    type EvalResult = {
-        value: Exp option;
-        environment: Environment;
-        draw: DrawMap;
-        error: EvalError option;
     }
 
     let startingEnvironment : Environment= 
@@ -68,7 +58,7 @@ module Eval =
     let liftToExecutionContext 
         (f: StackExecutionContext -> Result<StackExecutionContext, EvalError>) 
         : ExecutionContext -> Result<ExecutionContext, EvalError>  = fun stackContext ->
-            monad {
+            result {
                 let! newContext = f stackContext.currentContext
                 return {stackContext with currentContext = newContext}
             }
@@ -82,7 +72,7 @@ module Eval =
             | _ -> Ok <| (exp :: context.arguments, context.currentOp)
 
     let acceptExpression exp context = 
-        monad {
+        result {
             let! (newArgs, newOp) = acceptExpressionHelper exp context.currentContext
             return updateTop (fun t -> {t with arguments = newArgs; currentOp = newOp}) context
         }
@@ -99,7 +89,7 @@ module Eval =
 
             | Op o -> 
                 match o with 
-                | Primitive p -> monad {
+                | Primitive p -> result {
                     let fn = lookupPrimitiveProcedure p
                     let! (applied, message) = fn (List.rev context.arguments) context.environment
                     let (newDraw, newEnv) = 
@@ -110,7 +100,7 @@ module Eval =
                     return (Some applied, [applied], Empty, newEnv, newDraw)
                 }
 
-    let reduceStack context = monad {
+    let reduceStack context = result {
         let! (ret, args, op, env, draw) = reduceStackHelper context.currentContext
         return updateTop (fun t -> {t with ret = ret; arguments = args; currentOp = op; environment = env; draw = draw}) context
     }
@@ -167,24 +157,24 @@ module Eval =
             newTopFrame initContext |> pushNewTopFrame initContext |> Ok
 
         | Expression word -> 
-            evalWord initContext word >>= flip acceptExpression initContext
+            evalWord initContext word |> Result.bind (flip acceptExpression initContext)
 
         | EndStack -> 
-            reduceStack initContext |>> updateTop (fun t -> {t with arguments= []; currentOp = Empty;})
+            reduceStack initContext |> Result.map (updateTop (fun t -> {t with arguments= []; currentOp = Empty;}))
 
         | ReduceAndPushOp(maybePrimitive) -> 
             // todo: reduce is possible
             match maybePrimitive with
             | Some primitive -> 
-                monad {
-                    let! acceptingContext = initContext |> reduceStack |>> acceptNextOp 
+                result {
+                    let! acceptingContext = initContext |> reduceStack |> Result.map acceptNextOp 
                     let evalPrimitive = parsePrimitiveToEvalPrimitive primitive |> PrimitiveProcedure
                     return! acceptExpression evalPrimitive acceptingContext
                 }
-            | None -> initContext |> reduceStack |>> acceptNextOp // liftToExecutionContext (reduceStack >=> acceptNextOp) initContext
+            | None -> initContext |> reduceStack |> Result.map acceptNextOp // liftToExecutionContext (reduceStack >=> acceptNextOp) initContext
 
         | ReturnNewStack -> 
-            monad {
+            result {
                 let! (ret, _, _, _, topDraw) = reduceStackHelper initContext.currentContext
                 return! returnToLastContinuation ret initContext topDraw
             }
@@ -219,7 +209,7 @@ module Eval =
             match context.continuations with 
             // If there are no continuations, it's easy -- reduce the top and only frame. This may or may not yield a value.
             | [] -> 
-                let reduced = reduceStackHelper context.currentContext |> toOption |> Option.map (fun (ret, _, _, _,_) -> ret) |> join
+                let reduced = reduceStackHelper context.currentContext |> toOption |> Option.map (fun (ret, _, _, _,_) -> ret) |> Option.flatten
                 Option.map (fun r -> (invPriority, r)) reduced
 
             // As an example for when we have continuations, let's use 
@@ -229,15 +219,15 @@ module Eval =
             | _::_ ->  
                 // First we get the fallback by popping the top frame and recursively getting the result
                 // as if the top frame never existed.
-                let fallBack = pop context |>> go (invPriority + 1) |> join
-                let withThisFrameResult = monad {
+                let fallBack = pop context |> Option.map (go (invPriority + 1)) |> Option.flatten
+                let withThisFrameResult = result {
                     // Then we reduce the top frame and push to the continuation and try reducing.
                     let! (ret, _, _, _, topDraw) = reduceStackHelper context.currentContext 
                     let! returnedContext = returnToLastContinuation ret context topDraw
                     return go invPriority returnedContext
                 } 
 
-                let withThisFrame = toOption withThisFrameResult |> join
+                let withThisFrame = toOption withThisFrameResult |> Option.flatten
                 // This lets us compare two things below:
                 // The continuation reduced without this frame, and the continuation reduced with it.
                 // If the introduction of this frame still yields a good result, we prefer that.

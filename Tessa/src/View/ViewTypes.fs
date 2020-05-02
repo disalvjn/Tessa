@@ -15,8 +15,8 @@ module ViewTypes =
 
     // find bounding box, scale up *, move to middle +
 
-    type Point = {x: int; y: int; label: string}
-    type Segment = {orig: Point; dest: Point; label: string}
+    type Point = {x: float; y: float;}
+    type Segment = {orig: Point; dest: Point;}
 
     type ViewShape = 
         | ViewPoint of S.Point
@@ -24,8 +24,45 @@ module ViewTypes =
         | ViewLine of S.Line
 
     type View = {
-        shape: ViewShape;
-        mode: ViewMode;
+        viewShape: ViewShape;
+        viewMode: ViewMode;
     }
 
-    
+    type DrawTargets = {
+        topLeft: float * float; 
+        width: float;
+        height: float;
+    }
+
+    type LineStyle = 
+        | Solid 
+        | Dotted
+
+    type LineWidth =
+        | ExtraThin
+        | Thin 
+        | Medium 
+        | Thick
+        | ExtraThick
+
+    type SegmentDrawOptions = {
+        color: string;
+        label: string;
+        lineStyle: LineStyle;
+        lineWidth: LineWidth;
+        accentuatePoints: bool;
+    }
+
+    type PointStyle = 
+        | Filled
+        | Hollow
+
+    type PointDrawOptions = {
+        color: string;
+        label: string; 
+        pointStyle: PointStyle;
+    }
+
+    type DrawShape = 
+        | DrawPoint of Point * PointDrawOptions
+        | DrawSegment of Segment  * SegmentDrawOptions

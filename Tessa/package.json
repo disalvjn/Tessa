@@ -5,7 +5,7 @@
   },
   "dependencies": {
     "@babel/core": "^7.8.4",
-    "fable-compiler": "^2.4.15",
+    "fable-compiler": "^2.8.4",
     "fable-loader": "^2.1.8",
     "react": "^16.12.0",
     "react-dom": "^16.12.0",

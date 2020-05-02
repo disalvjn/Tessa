@@ -155,7 +155,6 @@ module EvalTests =
             (c + d !'k);
             """
         let er = evalResult program 
-        // failAndPrint er
 
         let expected = Map.add "k" [
                 L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0)) |> E.LSegment;
@@ -168,11 +167,10 @@ module EvalTests =
         let program =
             """
             [] 'a 'b 'c 'd = (:square);
-            a + b !'k;
+            a b + !'k;
             (c + d !'k; 'i = )
             """
         let er = evalResult program 
-        // failAndPrint er
 
         let expected = Map.add "k" [
                 L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0)) |> E.LSegment;

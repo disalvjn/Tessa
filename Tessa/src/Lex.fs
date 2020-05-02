@@ -3,7 +3,6 @@ namespace Tessa.Lex
 open System
 open Tessa.Util
 open System.Text.RegularExpressions
-open FSharpPlus
 
 module Lex = 
     open Util
@@ -83,7 +82,7 @@ module Lex =
         let rec go row col str = 
             match advanceLex row col str with 
             | Ok(None) -> Ok []
-            | Ok(Some(result, nextRowCol, nextStr)) -> map (fun g -> result :: g) <| go nextRowCol.row nextRowCol.col nextStr
+            | Ok(Some(result, nextRowCol, nextStr)) -> Result.map (fun g -> result :: g) <| go nextRowCol.row nextRowCol.col nextStr
             | Error e -> Error e
 
-        go 0 0 topString |> map (List.filter (function | (WhiteSpace,_) -> false | _ -> true))
+        go 0 0 topString |> Result.map (List.filter (function | (WhiteSpace,_) -> false | _ -> true))
