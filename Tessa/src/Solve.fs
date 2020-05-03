@@ -491,7 +491,6 @@ module Solve =
         let closedPath = Set.ofList beginnings = Set.ofList endings
         if closedPath then Some <| List.map SegmentId tupled else None
 
-
     // join must work when only some segments form completed polygons and must allow other segments to continue existing
     let joinToPolygons (segments : SegmentId list) = 
 
@@ -504,7 +503,7 @@ module Solve =
         // It is 2020 after all...
         let rec go (points: PointId list) (visitedPoints: Set<PointId>) (candidates: Set<Set<PointId>> list) (elected: Set<Set<PointId>> list) = 
             match points with 
-            | [] -> elected 
+            | [] -> List.map closed elected |> somes
             | p :: ps -> 
                 let hasSegmentUsingPoint candidate = Set.exists (fun pointSet -> Set.contains p pointSet) candidate
                 let (segmentsInCandidatesUsingPoint, unelectableCandidates) = List.partition hasSegmentUsingPoint candidates
@@ -514,23 +513,14 @@ module Solve =
                     |> List.append unelectableCandidates
                     |> List.distinct
 
-                // failAndPrint (p, segmentsInCandidatesUsingPoint, unelectableCandidates)
-
-                // failAndPrint augmented
-
                 let augmentedWithoutSupersets = List.filter (fun aug -> not <| List.exists (fun poly -> polygonIsSuperset aug poly) elected) augmented
 
                 let (newPolygons, newCandidates) = List.partition (Option.isSome << closed) augmentedWithoutSupersets
                 let prunedExistingPolygons = List.filter (fun poly -> not <| List.exists (fun newPoly -> polygonIsSuperset poly newPoly) newPolygons) elected
-                // failAndPrint newCandidates
 
                 go ps (Set.add p visitedPoints) newCandidates (newPolygons @ prunedExistingPolygons)
 
         let allPoints = List.collect (fun (SegmentId(p, q)) -> [p; q]) segments |> List.distinct
-
         let initialCandidates = List.map (fun (SegmentId(p, q)) -> Set.ofList [Set.ofList [p; q]]) segments
 
         go allPoints Set.empty initialCandidates []
-
-
-

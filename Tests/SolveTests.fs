@@ -197,25 +197,21 @@ module SolveTests =
         |> Seq.toList
         |> List.rev
 
-    let joinToPolygons = S.joinToPolygons >> Set.ofList
+    let joinToPolygons atoms = S.joinToPolygons atoms |> Set.ofList |> Set.map (List.sortBy (fun (S.SegmentId(p, q)) -> p))
 
     [<Fact>]
     let ``Join To Polygons Simple Triangle`` () = 
         let atoms = toSegmentIds [1;2;3;1]
-        let joined = joinToPolygons atoms
-        failAndPrint joined
-        ()
-        // let expected = Set.ofList [Set.ofList <| toSegmentIds [1;2;3;1]]
-        // Assert.Equal<Set<Set<Set<S.PointId>>>>(expected, joined)
+        let joined = joinToPolygons atoms 
+        let expected = Set.ofList [toSegmentIds [1;2;3;1]]
+        Assert.Equal<Set<S.SegmentId list>>(expected, joined)
 
     [<Fact>]
     let ``Join To Polygons Simple Triangle With Divider`` () = 
         let atoms = toSegmentIds [1;2;4;1] @  toSegmentIds [2;3;4]
         let joined = joinToPolygons atoms
-        failAndPrint joined
-        ()
-    //     let expected = Set.ofList [Set.ofList <| toSegmentIds [1;2;4;1]; Set.ofList <| toSegmentIds [2;3;4;2]]
-    //     Assert.Equal<Set<Set<S.SegmentId>>>(expected, joined)
+        let expected = Set.ofList [toSegmentIds [1;2;4;1]; toSegmentIds [2;3;4;2]]
+        Assert.Equal<Set<S.SegmentId list>>(expected, joined)
 
 
 
