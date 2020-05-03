@@ -35,6 +35,11 @@ module State =
 
    let result a = State (fun s -> (a, s))
 
+   let rec sequence (coll: State<'s, 'a> list) : State<'s, 'a list> = 
+      match coll with 
+      | [] -> result []
+      | x :: xs -> sequence xs |> bind (fun many -> x |> bind (fun single -> result <| single :: many))
+
    type StateBuilder() =
       member b.Return(a) = State (fun s -> (a, s))
       member b.ReturnFrom(x) = x

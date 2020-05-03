@@ -164,8 +164,21 @@ module SolveTests =
 
         let expected = toSegments [p 0.0 0.0; p 1.0 0.0; p 2.0 0.0; p 3.0 0.0];
         AssertSegmentChainEqual expected atoms
-        // failAndPrint atoms
-        // ()
+
+    [<Fact>]
+    let ``Atomize Segments`` () = 
+        // square with a plus through the middle 
+        let segments = 
+            // The square
+            toSegments [p 0.0 0.0; p 2.0 0.0; p 2.0 2.0; p 0.0 2.0; p 0.0 0.0;] 
+            // Horizontal Line through middle
+            @ toSegments [p 0.0 1.0; p 2.0 1.0;] 
+            // Vertical Line through middle
+            @ toSegments [p 1.0 2.0; p 1.0 0.0;]
+
+        let (segmentIds, canon) = S.atomizeSegments segments
+        Assert.Equal(9, canon.nextId) // there are nine unique points in the plus-square 
+        Assert.Equal(12, List.length segmentIds) // there are 12 segments.
 
 
 

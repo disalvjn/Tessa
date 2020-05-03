@@ -22,6 +22,9 @@ module Solve =
         let eps = 0.001
         (abs (p.x - q.x)) < eps && (abs (p.y - q.y)) < eps
 
+    let equalEnoughEps p q eps = 
+        (abs (p.x - q.x)) < eps && (abs (p.y - q.y)) < eps
+
     type Segment = 
         | Straight of Point * Point
 
@@ -397,6 +400,10 @@ module Solve =
 
         {line = solveLine; segment = solveSegment; point = solvePoint;}
 
+    //
+    // POLYGONS
+    //
+
 
     type PointId = PointId of int
     type SegmentId = SegmentId of PointId * PointId 
@@ -408,9 +415,46 @@ module Solve =
         segments: SegmentId list;
     }
 
+    type CanonicizerState = {
+        epsilon: float;
+        idToPoint: Map<PointId, Point>;
+        nextId: int;
+    }
+
+    let pointIdToPoint cstate pointId =
+        // it's a bit sketkchy using find instead of tryFind. We'll get an exception
+        // if there is no such id. But as long as we're getting ids by the state's provisioning we'll
+        // be fine.
+        Map.find pointId cstate.idToPoint 
+
+    let segmentIdToSegment cstate (SegmentId(p, q)) = 
+        Straight(pointIdToPoint cstate p, pointIdToPoint cstate q)
+
+    let pointToPointId point = 
+        state {
+            // could optimize by having an incomplete pointToPointId map -- incomplete because
+            // it wouldn't account for all possible epsilon-allowed variations. 
+            // but we're not going from raw to id nearly as often as id to raw, so I don't think
+            // it's worth the extra complexity for now.
+            let! s = State.get
+            let existing = Map.toList s.idToPoint |> List.filter (fun (id, q) -> equalEnoughEps point q s.epsilon) |> List.tryHead
+            match existing with 
+            | Some (pointId, _) -> return pointId
+            | None -> 
+                let newId = PointId s.nextId
+                do! State.put {s with nextId = s.nextId + 1; idToPoint = Map.add newId point s.idToPoint}
+                return newId
+        }
+    
+    let segmentToSegmentId (Straight(orig, dest)) = 
+        state {
+            let! orig' = pointToPointId orig 
+            let! dest' = pointToPointId dest 
+            return SegmentId (orig', dest')
+        }
+
     // let canonicalize points = 
     //     List.allPairs // map from original to canon
-
     let atomizeSegment segment chain = 
         let rec splits atoms = 
             match atoms with 
@@ -427,6 +471,13 @@ module Solve =
 
         Set.ofList [segment] |> go |> Set.toList
 
-    // split, join
-    // let atomicizeSegments (chain: SegmentChain) : SegmentChain = 
+    let atomizeSegments segments =
+        let emptyCanonState = {epsilon = 0.001; nextId = 0; idToPoint = Map.empty;}
+        let atomized = List.collect (fun s -> atomizeSegment s segments) segments 
+        let canonicized = State.sequence <| List.map segmentToSegmentId atomized
+        State.run canonicized emptyCanonState
+
+    // join must work when only some segments form completed polygons and must allow other segments to continue existing
+    // let join = 
+
 
