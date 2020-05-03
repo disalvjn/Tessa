@@ -45,6 +45,8 @@ module App =
         | Ok o -> o 
         | Error e -> failAndPrint e
 
+    let solve = (S.makeSolvers ())
+
     let go (ctx: Browser.Types.CanvasRenderingContext2D) (writeError: obj -> unit) program = 
         try 
             let lexed = Lex.lex program 
@@ -60,7 +62,7 @@ module App =
 
             let targets = {V.boundingHeight = 500.0; V.boundingWidth = 500.0; V.topLeft = (200.0, 200.0); V.xMax = 1000.0; V.yMax = 1000.0;}
 
-            let (drawable, errs) = V.drawableFromEvalResult result (S.makeSolvers ()) targets
+            let (drawable, errs) = V.drawableFromEvalResult result solve targets
             List.iter writeError errs
             // printf "%A" drawable
             // printf "%A" errs
