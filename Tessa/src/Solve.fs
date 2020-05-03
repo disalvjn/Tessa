@@ -33,13 +33,6 @@ module Solve =
 
     type Location = double
 
-    type PolygonId = PolygonId of int
-
-    type PolygonDirectionality = Up | Down
-
-    type Polygon = 
-        | Polygon of PolygonId * Point * Segment * PolygonDirectionality
-
     // todo: look for calls to okay
     type SolveError = 
         | PointOnEmptySegmentChain of Location * SolveError option
@@ -197,7 +190,7 @@ module Solve =
                 let y = evaluateLineAtWithSlope slope1 point1 x
                 Ok {x = x; y = y;}
 
-    let solveSegmentSnipped (original: SegmentChain) (cutAt: SegmentChain) = 
+    let solveSegmentSnipped (original: Segment) (cutAt: SegmentChain) : (Segment * Segment) option = 
         let pointBoundedBy point p q =
             (min p.x q.x) <= point.x && point.x <= (max p.x q.x) && (min p.y q.y) <= point.y && point.y <= (max p.y q.y)
 
@@ -215,19 +208,27 @@ module Solve =
                 else None
         } 
 
-        let replaceEnd segment point =
+        let splitAt segment point =
             match segment with
-                | Straight(orig, dest) -> Straight(orig, point)
+                | Straight(orig, dest) -> 
+                    if equalEnough orig point || equalEnough dest point 
+                    then None 
+                    else Some (Straight(orig, point), Straight(point, dest))
 
+        let possibleCut = List.map (segmentsIntersect original) cutAt |> List.filter Option.isSome |> List.tryHead |> Option.flatten
+        match possibleCut with
+            | Some cutPoint -> splitAt original cutPoint 
+            | None -> None
+
+    let solveSegmentChainSnipped (original: SegmentChain) (cutAt: SegmentChain) : SegmentChain= 
         let rec search segments = 
             match segments with
             | [] -> []
             | segment::rest -> 
-                let possibleCut = List.map (segmentsIntersect segment) cutAt |> List.filter Option.isSome |> List.tryHead
-                match possibleCut with
-                    | Some (Some cutPoint) -> [replaceEnd segment cutPoint]
+                let possibleSplit = solveSegmentSnipped segment cutAt 
+                match possibleSplit with
+                    | Some (beforeSplit, afterSplit) -> [beforeSplit]
                     | _ -> segment :: (search rest)
-
         search original
 
     let solveSegmentPerpendicular position (origSegment: SegmentChain) (endSegment: SegmentChain) =
@@ -347,7 +348,7 @@ module Solve =
                         | L.Perpendicular(position, originSegment, endSegment) -> 
                             stateResultBind2 (solveSegment originSegment) (solveSegment endSegment) (fun ro re -> Result.map (fun x -> [x]) <| solveSegmentPerpendicular position ro re)
                         | L.Snipped(orig, cutAt) -> 
-                            stateResultBind2 (solveSegment orig) (solveSegment cutAt) (fun o c -> Ok <| solveSegmentSnipped o c)
+                            stateResultBind2 (solveSegment orig) (solveSegment cutAt) (fun o c -> Ok <| solveSegmentChainSnipped o c)
             return! returnSegment segment found
         }
 
@@ -395,3 +396,37 @@ module Solve =
             solved
 
         {line = solveLine; segment = solveSegment; point = solvePoint;}
+
+
+    type PointId = PointId of int
+    type SegmentId = SegmentId of PointId * PointId 
+
+    // canonicalize points phase, eps = 0.001 maybe
+    // this changes input to View
+
+    type Polygon = {
+        segments: SegmentId list;
+    }
+
+    // let canonicalize points = 
+    //     List.allPairs // map from original to canon
+
+    let atomizeSegment segment chain = 
+        let rec splits atoms = 
+            match atoms with 
+            | [] -> Set.empty
+            | atom :: xs -> 
+                let nextSplits = List.map (fun s -> solveSegmentSnipped atom [s]) chain |> somes |> List.unpack |> Set.ofList
+                if not (Set.isEmpty nextSplits) then Set.union nextSplits (splits xs) else Set.add atom (splits xs)
+
+        let rec go atoms = 
+            let afterSplit = splits (List.ofSeq atoms)
+            if Set.count afterSplit = Set.count atoms 
+            then afterSplit
+            else go afterSplit
+
+        Set.ofList [segment] |> go |> Set.toList
+
+    // split, join
+    // let atomicizeSegments (chain: SegmentChain) : SegmentChain = 
+

@@ -126,6 +126,9 @@ module Util =
       | (Some(_), _) -> x
       | _ -> y
 
+   let curry f x y = f (x, y)
+   let uncurry f (x, y) = f x y
+
 module Option = 
    let cata some none option = 
       match option with 
@@ -142,6 +145,14 @@ module Map =
    let union m n = unionWith (fun v1 v2 -> v1) m n
 
    let values m = Map.toList m |> List.map snd
+
+module List = 
+   let rec cartesianProduct list1 list2 =  
+      match list1 with 
+      | [] -> []
+      | x :: ys -> List.map (fun a -> (x, a)) list2 @ cartesianProduct ys list2
+   
+   let unpack list = List.collect (fun (x, y) -> [x; y]) list
 
 
 // http://matthewmanela.com/blog/functional-stateful-program-in-f/

@@ -32,8 +32,6 @@ module Language =
         | Concat of Segment * Segment
         | Perpendicular of  position: double * originSegment: Segment * endSegment: Segment
         | Snipped of original: Segment * cutAt: Segment
-        // | QuadraticBezier of orig: Point * control: Point * dest: Point
-        // | FocalSplit of farSegment: Segment * nearSegment: Segment * focal: Point * numberPolygons: int
         static member ToSegmentable s = AlreadySegment(s)
         static member Expression s = SegmentExp(s)
         static member ToLine s = ExtendSegment(s)
@@ -54,20 +52,10 @@ module Language =
         | GlideAround of pinned: Point * ``from``: Point * ``to``: Point
         | Rotate of direction: RotationDirection * angle: Rotation * point: Point
 
-    and Polygon = 
-        | Up of PointOnSegment // must be on line
-        | Down of PointOnSegment // must be on line
-        | Segments of Segment list
-        static member Expression p = PolygonExp(p)
-
     and Expression =
         | PointExp of Point
         | SegmentExp of Segment
-        | PolygonExp of Polygon
         | VarExp of name: string * Expression 
-
-    let up location segment = Up <| PointOnSegment(location, segment)
-    let down location segment = Down <| PointOnSegment(location, segment)
 
     let inline asSegment (p:^t) = (^t: (static member ToSegment: ^t -> Segment) (p))
     let inline asSegmentable (p:^t) = (^t: (static member ToSegmentable: ^t -> CanMakeSegment) (p))
@@ -118,7 +106,7 @@ module PrimitiveCells =
         Top: Point;
     }
 
-    type Builder<'a> = 'a -> Segment list * Polygon list * Expression list
+    type Builder<'a> = 'a -> Segment list * Expression list
 
     let splitFocal2 (focal: Point) (farBorder: Segment) (nearBorder: Segment) =
         let segmentAt at = (farBorder @ at) + focal |-| nearBorder 
@@ -168,9 +156,7 @@ module Examples =
 
         let (s1, s2, s3, s4, s5) = splitFocal5 focal leftBorder rightBorder
 
-        let (p1, p2, p3, p4, p5, p6) = (down 0.5 s1, down 0.5 s2, down 0.5 s3, down 0.5 s4, down 0.5 s5, up 0.5 s5)
-
-        ([border; s1; s2; s3; s4; s5], [p1; p2; p3; p4; p5; p6], [var "i1" i1; var "i2" i2; var "i1 % r1" <| i1 % r1; var "i2 % r2" <| i2 % r2])
+        ([border; s1; s2; s3; s4; s5], [var "i1" i1; var "i2" i2; var "i1 % r1" <| i1 % r1; var "i2 % r2" <| i2 % r2])
 
 
     // Designing Tessellations p176
@@ -214,12 +200,5 @@ module Examples =
         let upChain = (a + c @ 0.25) + (a + b @ 0.66) + middleUpVertex + (c + b @ 0.66) + (c + a @ 0.25)
         let finalUp = b + middleUpVertex
 
-        // Polygons on row 1
-        let (p1, p2, p3, p4) = (up 0.1 <| a + c, up 0.4 <| a + c, up 0.6 <| a + c, up 0.9 <| a + c)
-        // Row 2
-        let (p5, p6, p7) = (up 0.1 down1, up 0.9 down1, up 0.1 down2)
-        // Row 3
-        let (p8, p9) = (down 0.9 <| a + b, down 0.9 <| c + b)
-
-        ([a + b + c; down1 + down2; upChain; finalUp], [p1;p2;p3;p4;p5;p6;p7;p8;p9], [])
+        ([a + b + c; down1 + down2; upChain; finalUp], [])
 

@@ -23,7 +23,10 @@ module SolveTests =
     let AssertSegmentEqual (S.Straight(orig, dest)) (S.Straight(orig2, dest2)) =
         AssertPointEqual orig orig2
         AssertPointEqual dest dest2
-
+    
+    let AssertSegmentChainEqual expected actual = 
+        Assert.Equal(List.length expected, List.length actual)
+        List.zip expected actual |> List.iter (uncurry AssertSegmentEqual)
 
     let p x y = {S.x = x; S.y = y;}
 
@@ -130,11 +133,11 @@ module SolveTests =
         // AssertPointEqual (List.head chain1 |> fun (S.Straight (orig, dest)) -> dest) (p -1.0 2.0)
         // AssertPointEqual (List.head (List.tail chain1) |> fun (S.Straight (orig, dest)) -> orig) (p -1.0 2.0)
 
-        let snippedChain1 = S.solveSegmentSnipped chain1 chain2
+        let snippedChain1 = S.solveSegmentChainSnipped chain1 chain2
         Assert.Equal(5, List.length snippedChain1)
         AssertSegmentEqual (List.last snippedChain1) <| S.Straight(p -1.0 1.0, p 0.0 0.0)
 
-        let snippedChain2 = S.solveSegmentSnipped chain2 chain1
+        let snippedChain2 = S.solveSegmentChainSnipped chain2 chain1
         Assert.Equal(3, List.length snippedChain2)
         AssertSegmentEqual (List.last snippedChain2) <| S.Straight(p 1.0 1.0, p 0.0 0.0)
 
@@ -150,6 +153,20 @@ module SolveTests =
 
         AssertSegmentEqual (fromResult perpTo1) <| S.Straight(p 0.0 1.0, p 0.0 5.0)
         AssertSegmentEqual (fromResult perpTo2) <| S.Straight(p 0.0 1.0, p 0.0 0.0)
+
+    [<Fact>]
+    let ``Atomize Segment`` () = 
+        let segment = List.head <| toSegments [p 0.0 0.0; p 3.0 0.0;]
+        // -|_|- type of shape
+        let chain = toSegments [p 1.0 1.0; p 1.0 -1.0; p 2.0 -1.0; p 2.0 1.0; p 3.0 1.0; p 3.0 -1.0;]
+
+        let atoms = S.atomizeSegment segment chain |> List.sortBy (fun (S.Straight(orig, dest)) -> orig.x)
+
+        let expected = toSegments [p 0.0 0.0; p 1.0 0.0; p 2.0 0.0; p 3.0 0.0];
+        AssertSegmentChainEqual expected atoms
+        // failAndPrint atoms
+        // ()
+
 
 
         

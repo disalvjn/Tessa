@@ -68,7 +68,6 @@ module EvalTypes =
         | LSegment of L.Segment
         | LLine of L.Line
         | LOperation of L.Operation
-        | LPolygon of L.Polygon
 
     let toNumber exp = 
         match exp with 
