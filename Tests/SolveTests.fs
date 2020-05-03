@@ -213,6 +213,14 @@ module SolveTests =
         let expected = Set.ofList [toSegmentIds [1;2;4;1]; toSegmentIds [2;3;4;2]]
         Assert.Equal<Set<S.SegmentId list>>(expected, joined)
 
+    [<Fact>]
+    let ``Join To Polygons Simple Non-Closed Shape`` () = 
+        let atoms = toSegmentIds [1;2;4;1] @  toSegmentIds [2;3]
+        let joined = joinToPolygons atoms
+        let expected = Set.ofList [toSegmentIds [1;2;4;1];]
+        Assert.Equal<Set<S.SegmentId list>>(expected, joined)
+
+
 
 
 

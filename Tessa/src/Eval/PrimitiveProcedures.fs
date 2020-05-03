@@ -195,7 +195,8 @@ module PrimitiveProcedures =
         toPointArray [L.Absolute(0.0, 1.0); L.Absolute(1.0, 1.0); L.Absolute(1.0,0.0); L.Absolute(0.0,0.0);]
 
     let makeIsoscelesRight arguments env = 
-        toPointArray [L.Absolute (0.0, 1.0); L.Absolute(1.0, 1.0); L.Absolute(0.5, (sqrt 2.0) / 2.0)]
+        let x = (sqrt 2.0) / 2.0
+        toPointArray [L.Absolute(0.0, 0.0); L.Absolute (0.0, x); L.Absolute (x, x);]
 
     let lookupPrimitiveProcedure (p: PrimitiveProcedure) : PrimitiveProcedureFn = 
         match p with
