@@ -90,9 +90,23 @@ module EvalTypes =
     type DrawMap = Map<string, GeoExp list>
     type Environment = Map<string, Exp>
 
+    type Runtime = {
+        drawMap: DrawMap;
+        environment: Environment;
+        geoCanon: S.CanonicizerState;
+        polygons: S.Polygon list;
+    }
+
     type EvalResult = {
         value: Exp option;
-        environment: Environment;
-        draw: DrawMap;
+        runtime: Runtime;
         error: EvalError option;
     }
+
+    type PolygonIndex = PolygonIndex of string
+
+    type SolvedShape = 
+        | Point of S.PointId * string 
+        | Segment of S.SegmentId * string
+        | Line of S.Line
+        | Polygon of S.Polygon * PolygonIndex

@@ -160,7 +160,7 @@ module EvalTests =
                 L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0)) |> E.LSegment;
                 L.Link(L.Absolute(0.0, 1.0), L.Absolute(1.0, 1.0)) |> E.LSegment;] Map.empty
 
-        Assert.Equal<Map<string, E.GeoExp list>>(expected, er.draw)
+        Assert.Equal<Map<string, E.GeoExp list>>(expected, er.runtime.drawMap)
 
     [<Fact>]
     let ``Test Incomplete Draw`` () = 
@@ -176,5 +176,5 @@ module EvalTests =
                 L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0)) |> E.LSegment;
                 L.Link(L.Absolute(0.0, 1.0), L.Absolute(1.0, 1.0)) |> E.LSegment;] Map.empty
 
-        Assert.Equal<Map<string, E.GeoExp list>>(expected, er.draw)
+        Assert.Equal<Map<string, E.GeoExp list>>(expected, er.runtime.drawMap)
         

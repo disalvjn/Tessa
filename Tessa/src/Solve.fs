@@ -421,6 +421,12 @@ module Solve =
         nextId: int;
     }
 
+    let emptyCanonicizerState = {
+        epsilon = 0.001;
+        idToPoint = Map.empty; 
+        nextId = 0;
+    }
+
     let pointIdToPoint cstate pointId =
         // it's a bit sketkchy using find instead of tryFind. We'll get an exception
         // if there is no such id. But as long as we're getting ids by the state's provisioning we'll
@@ -472,10 +478,9 @@ module Solve =
         Set.ofList [segment] |> go |> Set.toList
 
     let atomizeSegments segments =
-        let emptyCanonState = {epsilon = 0.001; nextId = 0; idToPoint = Map.empty;}
         let atomized = List.collect (fun s -> atomizeSegment s segments) segments 
         let canonicized = State.sequence <| List.map segmentToSegmentId atomized
-        State.run canonicized emptyCanonState
+        State.run canonicized emptyCanonicizerState
 
     let closed (pointSet: Set<Set<PointId>>) = 
         let rec asTuples pointLinks visitedBegin = 
@@ -492,7 +497,7 @@ module Solve =
         if closedPath then Some <| List.map SegmentId tupled else None
 
     // join must work when only some segments form completed polygons and must allow other segments to continue existing
-    let joinToPolygons (segments : SegmentId list) = 
+    let joinToPolygons (segments : SegmentId list) : Polygon list = 
 
         let polygonIsSuperset (p1: Set<Set<PointId>>) (p2: Set<Set<PointId>>) = 
             // it's point based, not segment based
@@ -503,7 +508,7 @@ module Solve =
         // It is 2020 after all...
         let rec go (points: PointId list) (visitedPoints: Set<PointId>) (candidates: Set<Set<PointId>> list) (elected: Set<Set<PointId>> list) = 
             match points with 
-            | [] -> List.map closed elected |> somes
+            | [] -> List.map closed elected |> somes |> List.map (fun segments -> {Polygon.segments = segments})
             | p :: ps -> 
                 let hasSegmentUsingPoint candidate = Set.exists (fun pointSet -> Set.contains p pointSet) candidate
                 let (segmentsInCandidatesUsingPoint, unelectableCandidates) = List.partition hasSegmentUsingPoint candidates

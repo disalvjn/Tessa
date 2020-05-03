@@ -6,6 +6,7 @@ open Tessa.Parse
 open Tessa.Util
 open Tessa.Eval.Types
 open Tessa.Eval.PrimitiveProcedures
+open Tessa.Eval.Runtime
 
 // todo: make sure Parse and Solve both return Result
 module Eval = 
@@ -15,12 +16,12 @@ module Eval =
     open Util
     open EvalTypes
     open PrimitiveProcedures
+    open Runtime
 
     type StackExecutionContext = {
         currentOp: OperationState;
         arguments: Exp list;
-        environment: Environment;
-        draw: DrawMap;
+        runtime: Runtime;
         ret: Exp option;
     }
 
@@ -39,11 +40,17 @@ module Eval =
         |> Map.add "isosceles-right" (PrimitiveProcedure IsoscelesRight)
         |> Map.add "c4-clockwise" (PrimitiveProcedure C4Clockwise)
 
+    let emptyRuntime = {
+        environment = startingEnvironment;
+        drawMap = Map.empty;
+        geoCanon = S.emptyCanonicizerState;
+        polygons = [];
+    }
+
     let emptyStackExecutionContext = {
         currentOp = Empty;
         arguments = [];
-        environment = startingEnvironment;
-        draw = Map.empty;
+        runtime = emptyRuntime;
         ret = None;}
 
     let emptyExecutionContext = {
@@ -80,44 +87,42 @@ module Eval =
 
     let acceptNextOp context = updateTop (fun t -> {t with currentOp = EmptyAcceptNext;}) context 
 
-    let mergeDraws = Map.unionWith (@)
-
     let reduceStackHelper context = 
         match context.currentOp with 
-            | Empty -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.environment, context.draw)
+            | Empty -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.runtime)
 
-            | EmptyAcceptNext -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.environment, context.draw) 
+            | EmptyAcceptNext -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.runtime) 
 
             | Op o -> 
                 match o with 
                 | Primitive p -> result {
                     let fn = lookupPrimitiveProcedure p
-                    let! (applied, message) = fn (List.rev context.arguments) context.environment
-                    let (newDraw, newEnv) = 
+                    let! (applied, message) = fn (List.rev context.arguments) context.runtime.environment
+                    let newRuntime = 
                         match message with
-                        | Some(AugmentEnvironment e) -> (context.draw, Map.union e context.environment)
-                        | Some(DrawGeo(key, draws)) -> (mergeDraws (Map.add key [draws] Map.empty) context.draw, context.environment)
-                        | None -> (context.draw, context.environment)
-                    return (Some applied, [applied], Empty, newEnv, newDraw)
+                        | Some m -> handleMessage m context.runtime
+                        | None -> context.runtime
+                    return (Some applied, [applied], Empty, newRuntime)
                 }
 
     let reduceStack context = result {
-        let! (ret, args, op, env, draw) = reduceStackHelper context.currentContext
-        return updateTop (fun t -> {t with ret = ret; arguments = args; currentOp = op; environment = env; draw = draw}) context
+        let! (ret, args, op, runtime) = reduceStackHelper context.currentContext
+        return updateTop (fun t -> {t with ret = ret; arguments = args; currentOp = op; runtime = runtime}) context
     }
 
-    let returnToLastContinuation ret initContext topDraw =
+    let returnToLastContinuation ret initContext topRuntime =
             // return to the last continuation
         match List.tryHead initContext.continuations with 
         | None -> Error UnbalancedParenExtraClose 
         | Some continuation -> 
-            let newDraw = mergeDraws topDraw continuation.draw
-            let updatedCurrentContext =  {continuation with arguments = tryCons ret continuation.arguments; draw = newDraw}
+            // This is a "merge down" operation that concats draw but not environment
+            let newRuntime = mergeDown topRuntime continuation.runtime 
+            let updatedCurrentContext =  {continuation with arguments = tryCons ret continuation.arguments; runtime = newRuntime;}
             let newContext = {initContext with continuations = List.tail initContext.continuations; currentContext = updatedCurrentContext;}
             Ok newContext
 
     let findIdentifier execContext ident = 
-        match Map.tryFind ident execContext.currentContext.environment with
+        match Map.tryFind ident execContext.currentContext.runtime.environment with
             | None -> Error <| UndefinedVariable(ident, "If you meant to assign, assign to a symbol.")
             | Some exp -> Ok exp
 
@@ -146,7 +151,7 @@ module Eval =
         List.collect flatten commands
 
     let newTopFrame context = 
-        {emptyStackExecutionContext with environment = context.currentContext.environment}
+        {emptyStackExecutionContext with runtime = context.currentContext.runtime}
 
     let pushNewTopFrame context frame = 
         let current = context.currentContext 
@@ -176,8 +181,8 @@ module Eval =
 
         | ReturnNewStack -> 
             result {
-                let! (ret, _, _, _, topDraw) = reduceStackHelper initContext.currentContext
-                return! returnToLastContinuation ret initContext topDraw
+                let! (ret, _, _, topRuntime) = reduceStackHelper initContext.currentContext
+                return! returnToLastContinuation ret initContext topRuntime
             }
 
     let firstPriorityOption newReduction lastResult = 
@@ -210,7 +215,7 @@ module Eval =
             match context.continuations with 
             // If there are no continuations, it's easy -- reduce the top and only frame. This may or may not yield a value.
             | [] -> 
-                let reduced = reduceStackHelper context.currentContext |> toOption |> Option.map (fun (ret, _, _, _,_) -> ret) |> Option.flatten
+                let reduced = reduceStackHelper context.currentContext |> toOption |> Option.map (fun (ret, _, _, _) -> ret) |> Option.flatten
                 Option.map (fun r -> (invPriority, r)) reduced
 
             // As an example for when we have continuations, let's use 
@@ -223,8 +228,8 @@ module Eval =
                 let fallBack = pop context |> Option.map (go (invPriority + 1)) |> Option.flatten
                 let withThisFrameResult = result {
                     // Then we reduce the top frame and push to the continuation and try reducing.
-                    let! (ret, _, _, _, topDraw) = reduceStackHelper context.currentContext 
-                    let! returnedContext = returnToLastContinuation ret context topDraw
+                    let! (ret, _, _, topRuntime) = reduceStackHelper context.currentContext 
+                    let! returnedContext = returnToLastContinuation ret context topRuntime
                     return go invPriority returnedContext
                 } 
 
@@ -251,16 +256,15 @@ module Eval =
                 | Error e -> (lastResult, Error (context, e))
         let (opt, result) = go emptyExecutionContext (flattenParseStackCommands stackCommands) None
         let partialResult = Option.map (fun (_, ret) -> ret) opt
-        let makeDraw r = r.continuations |> List.map (fun c -> c.draw) |> List.fold mergeDraws r.currentContext.draw; 
+        // Fold with "merge down"
+        let makeRuntime r = r.continuations |> List.map (fun c -> c.runtime) |> List.fold mergeDown r.currentContext.runtime; 
         Result.cata
             (fun r -> {
-                environment = r.currentContext.environment; 
                 value = partialResult; 
-                draw = makeDraw r;
+                runtime = {makeRuntime r with environment = r.currentContext.runtime.environment};
                 error = None;})
             (fun (context, e) -> {
-                environment = Map.empty; 
                 value = partialResult; 
-                draw = makeDraw context;
+                runtime = makeRuntime context;
                 error = Some e;})
             result

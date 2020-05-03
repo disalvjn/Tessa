@@ -46,7 +46,7 @@ module View =
         // todo: long term, solving shouldn't happen in here. There will be an extra layer that computes polygons,
         // applies tessellations, determines indexes. 
 
-        let (env, draw, result) = (evalResult.environment, evalResult.draw, evalResult.value)
+        let (env, draw, result) = (evalResult.runtime.environment, evalResult.runtime.drawMap, evalResult.value)
         // we should be able to handle partial errors
         let (fromEnvOks, fromEnvErrors) = 
             env 
@@ -84,8 +84,8 @@ module View =
     let extractAbsolutes (evalResult: E.EvalResult) = 
         let geometrics = 
             tryCons (Option.bind isGeoExp evalResult.value) <|
-            ((evalResult.environment |> Map.filterSome isGeoExp |> Map.values |> Seq.toList)
-            @ (List.concat <| Map.values evalResult.draw))
+            ((evalResult.runtime.environment |> Map.filterSome isGeoExp |> Map.values |> Seq.toList)
+            @ (List.concat <| Map.values evalResult.runtime.drawMap))
 
         List.map asAbsolutePoint geometrics |> somes
 

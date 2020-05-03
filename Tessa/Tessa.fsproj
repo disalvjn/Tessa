@@ -10,6 +10,7 @@
     <Compile Include="src/Solve.fs" />
     <Compile Include="src/Eval/EvalTypes.fs" />
     <Compile Include="src/Eval/PrimitiveProcedures.fs" />
+    <Compile Include="src/Eval/Runtime.fs" />
     <Compile Include="src/Eval/Eval.fs" />
     <Compile Include="src/View/ViewTypes.fs" />
     <Compile Include="src/View/View.fs" />

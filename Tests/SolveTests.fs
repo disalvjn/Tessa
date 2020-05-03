@@ -197,7 +197,7 @@ module SolveTests =
         |> Seq.toList
         |> List.rev
 
-    let joinToPolygons atoms = S.joinToPolygons atoms |> Set.ofList |> Set.map (List.sortBy (fun (S.SegmentId(p, q)) -> p))
+    let joinToPolygons atoms = S.joinToPolygons atoms |> Set.ofList |> Set.map (fun polygon -> List.sortBy (fun (S.SegmentId(p, q)) -> p) polygon.segments)
 
     [<Fact>]
     let ``Join To Polygons Simple Triangle`` () = 
