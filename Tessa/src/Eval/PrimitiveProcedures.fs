@@ -184,12 +184,18 @@ module PrimitiveProcedures =
         | [GeoExp shape as gs] -> Ok(gs, Some <| DrawGeo ("_GLOBAL", shape))
         | _ -> Error <| WrongArgumentsToDraw arguments
 
-    let makeSquare arguments env = 
-        [L.Absolute(0.0, 1.0); L.Absolute(1.0, 1.0); L.Absolute(1.0,0.0); L.Absolute(0.0,0.0);]
+    let toPointArray points = 
+        points
         |> List.map (LPoint >> GeoExp)
         |> Array
         |> flip tuple2 None
         |> Ok
+
+    let makeSquare arguments env = 
+        toPointArray [L.Absolute(0.0, 1.0); L.Absolute(1.0, 1.0); L.Absolute(1.0,0.0); L.Absolute(0.0,0.0);]
+
+    let makeIsoscelesRight arguments env = 
+        toPointArray [L.Absolute (0.0, 1.0); L.Absolute(1.0, 1.0); L.Absolute(0.5, (sqrt 2.0) / 2.0)]
 
     let lookupPrimitiveProcedure (p: PrimitiveProcedure) : PrimitiveProcedureFn = 
         match p with
@@ -207,4 +213,5 @@ module PrimitiveProcedures =
         | Snip -> snip
         | Intersect -> intersect
         | Draw -> draw
+        | IsoscelesRight -> makeIsoscelesRight
 

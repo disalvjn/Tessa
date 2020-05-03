@@ -13,6 +13,7 @@ module EvalTypes =
     type PrimitiveProcedure = 
         | AddNumber
         | Square
+        | IsoscelesRight
         | Assign
         | RecordBuilder 
         | RecordAccess

@@ -36,6 +36,7 @@ module Eval =
         Map.empty 
         |> Map.add "plus" (PrimitiveProcedure AddNumber)
         |> Map.add "square" (PrimitiveProcedure Square)
+        |> Map.add "isosceles-right" (PrimitiveProcedure IsoscelesRight)
         |> Map.add "c4-clockwise" (PrimitiveProcedure C4Clockwise)
 
     let emptyStackExecutionContext = {
