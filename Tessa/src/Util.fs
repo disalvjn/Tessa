@@ -97,6 +97,8 @@ module Util =
    let flip f x y = f y x 
    let tuple2 a b = (a, b)
 
+   let complement f x =  not (f x)
+
    let rec okays list = 
      match list with
      | [] -> []

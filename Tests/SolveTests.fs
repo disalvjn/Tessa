@@ -180,6 +180,45 @@ module SolveTests =
         Assert.Equal(9, canon.nextId) // there are nine unique points in the plus-square 
         Assert.Equal(12, List.length segmentIds) // there are 12 segments.
 
+    [<Fact>]
+    let ``Closed 1`` () =
+        let isClosed ps = ps |> List.map (fun (x,y) -> Set.ofList [S.PointId x; S.PointId y]) |> Set.ofList |> S.closed
+
+        Assert.Equal(true, Option.isNone <| isClosed [(1,2); (2, 3);])
+        Assert.Equal(true, Option.isNone <| isClosed [(1,2)])
+        Assert.Equal(true, Option.isNone <| isClosed [(1,3)])
+        Assert.Equal(true, Option.isSome <| isClosed [(1,2); (1,4); (2,4)])
+        Assert.Equal(true, Option.isSome <| isClosed [(2, 3); (3, 4); (4, 2)])
+        Assert.Equal(true, Option.isSome <| isClosed [(1,2);(1,4);(2,3);(4,3)])
+
+    let toSegmentIds points  =
+        Seq.zip points (List.tail points)
+        |> Seq.fold (fun segList (p1, p2) -> S.SegmentId(S.PointId p1, S.PointId p2) :: segList) []
+        |> Seq.toList
+        |> List.rev
+
+    let joinToPolygons = S.joinToPolygons >> Set.ofList
+
+    [<Fact>]
+    let ``Join To Polygons Simple Triangle`` () = 
+        let atoms = toSegmentIds [1;2;3;1]
+        let joined = joinToPolygons atoms
+        failAndPrint joined
+        ()
+        // let expected = Set.ofList [Set.ofList <| toSegmentIds [1;2;3;1]]
+        // Assert.Equal<Set<Set<Set<S.PointId>>>>(expected, joined)
+
+    [<Fact>]
+    let ``Join To Polygons Simple Triangle With Divider`` () = 
+        let atoms = toSegmentIds [1;2;4;1] @  toSegmentIds [2;3;4]
+        let joined = joinToPolygons atoms
+        failAndPrint joined
+        ()
+    //     let expected = Set.ofList [Set.ofList <| toSegmentIds [1;2;4;1]; Set.ofList <| toSegmentIds [2;3;4;2]]
+    //     Assert.Equal<Set<Set<S.SegmentId>>>(expected, joined)
+
+
+
 
 
         

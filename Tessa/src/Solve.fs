@@ -477,7 +477,60 @@ module Solve =
         let canonicized = State.sequence <| List.map segmentToSegmentId atomized
         State.run canonicized emptyCanonState
 
+    let closed (pointSet: Set<Set<PointId>>) = 
+        let rec asTuples pointLinks visitedBegin = 
+            match pointLinks with
+            | [] -> []
+            | [p; q] :: rest -> 
+                if Set.contains p visitedBegin
+                then (q, p) :: (asTuples rest <| Set.add q visitedBegin)
+                else (p, q) :: (asTuples rest <| Set.add p visitedBegin)
+            | _ -> failwith "should be impossible"
+        let tupled = asTuples (Set.toList (Set.map Set.toList pointSet)) Set.empty
+        let (beginnings, endings) = List.unzip tupled
+        let closedPath = Set.ofList beginnings = Set.ofList endings
+        if closedPath then Some <| List.map SegmentId tupled else None
+
+
     // join must work when only some segments form completed polygons and must allow other segments to continue existing
-    // let join = 
+    let joinToPolygons (segments : SegmentId list) = 
+
+        let polygonIsSuperset (p1: Set<Set<PointId>>) (p2: Set<Set<PointId>>) = 
+            // it's point based, not segment based
+            let allPointsP1 = p1 |> Set.toList |> List.collect Set.toList |> Set.ofList
+            let allPointsP2 = p2 |> Set.toList |> List.collect Set.toList |> Set.ofList
+            Set.isSuperset allPointsP1 allPointsP2
+
+        // It is 2020 after all...
+        let rec go (points: PointId list) (visitedPoints: Set<PointId>) (candidates: Set<Set<PointId>> list) (elected: Set<Set<PointId>> list) = 
+            match points with 
+            | [] -> elected 
+            | p :: ps -> 
+                let hasSegmentUsingPoint candidate = Set.exists (fun pointSet -> Set.contains p pointSet) candidate
+                let (segmentsInCandidatesUsingPoint, unelectableCandidates) = List.partition hasSegmentUsingPoint candidates
+                let augmented = 
+                    List.cartesianProduct segmentsInCandidatesUsingPoint segmentsInCandidatesUsingPoint
+                    |> List.collect (fun (x, y) -> [Set.union x y; x; y])
+                    |> List.append unelectableCandidates
+                    |> List.distinct
+
+                // failAndPrint (p, segmentsInCandidatesUsingPoint, unelectableCandidates)
+
+                // failAndPrint augmented
+
+                let augmentedWithoutSupersets = List.filter (fun aug -> not <| List.exists (fun poly -> polygonIsSuperset aug poly) elected) augmented
+
+                let (newPolygons, newCandidates) = List.partition (Option.isSome << closed) augmentedWithoutSupersets
+                let prunedExistingPolygons = List.filter (fun poly -> not <| List.exists (fun newPoly -> polygonIsSuperset poly newPoly) newPolygons) elected
+                // failAndPrint newCandidates
+
+                go ps (Set.add p visitedPoints) newCandidates (newPolygons @ prunedExistingPolygons)
+
+        let allPoints = List.collect (fun (SegmentId(p, q)) -> [p; q]) segments |> List.distinct
+
+        let initialCandidates = List.map (fun (SegmentId(p, q)) -> Set.ofList [Set.ofList [p; q]]) segments
+
+        go allPoints Set.empty initialCandidates []
+
 
 
