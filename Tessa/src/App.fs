@@ -1,7 +1,7 @@
 namespace Tessa.App
 open Tessa.View
 open Tessa.View.Types
-open Tessa.Solve
+open Tessa.Solve.Shapes
 open Tessa.Eval
 open Tessa.Eval.Types
 open Tessa.Lex
@@ -13,7 +13,7 @@ module App =
     module V = ViewTypes
     module E = Eval 
     module E = EvalTypes
-    module S = Solve
+    module S = SolveShapes
     module Lex = Lex 
     module Parse = Parse
     open Util
@@ -45,7 +45,6 @@ module App =
         | Ok o -> o 
         | Error e -> failAndPrint e
 
-    let solve = (S.makeSolvers ())
 
     let go (ctx: Browser.Types.CanvasRenderingContext2D) (writeError: obj -> unit) program = 
         try 
@@ -62,7 +61,7 @@ module App =
 
             let targets = {V.boundingHeight = 500.0; V.boundingWidth = 500.0; V.topLeft = (200.0, 200.0); V.xMax = 1000.0; V.yMax = 1000.0;}
 
-            let (drawable, errs) = V.drawableFromEvalResult result solve targets
+            let (drawable, errs) = V.drawableFromEvalResult result targets
             List.iter writeError errs
             // printf "%A" drawable
             // printf "%A" errs

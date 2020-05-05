@@ -112,7 +112,7 @@ module PrimitiveProcedures =
 
     let asOp x =
         match x with 
-        | GeoExp (LOperation o) -> Ok o
+        | LOperation o -> Ok o
         | _ -> Error <| NotAnOperation x
 
     let perpendicular arguments env =
@@ -144,7 +144,7 @@ module PrimitiveProcedures =
 
     let rotation arguments env direction angle =
         match arguments with 
-        | [point] -> asPoint point |> Result.bind (fun p -> Ok (L.Rotate(direction, angle, p) |> LOperation |> GeoExp, None))
+        | [point] -> asPoint point |> Result.bind (fun p -> Ok (L.Rotate(direction, angle, p) |> LOperation, None))
         | _ -> Error <| WrongArgumentsToRotation arguments
 
     let c4Clockwise arguments env =
@@ -181,7 +181,7 @@ module PrimitiveProcedures =
     let draw arguments env =
         match arguments with
         | [GeoExp shape as gs; Quote(P.Expression(P.Identifier key))] -> Ok (gs, Some <| DrawGeo (key, shape))
-        | [GeoExp shape as gs] -> Ok(gs, Some <| DrawGeo ("_GLOBAL", shape))
+        | [GeoExp shape as gs] -> Ok(gs, Some <| DrawGeo ("p", shape))
         | _ -> Error <| WrongArgumentsToDraw arguments
 
     let toPointArray points = 

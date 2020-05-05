@@ -7,7 +7,9 @@
     <Compile Include="src/Lex.fs" />
     <Compile Include="src/Parse.fs" />
     <Compile Include="src/Language.fs" />
-    <Compile Include="src/Solve.fs" />
+    <Compile Include="src/Solve/Types.fs" />
+    <Compile Include="src/Solve/Shapes.fs" />
+    <Compile Include="src/Solve/Polygons.fs" />
     <Compile Include="src/Eval/EvalTypes.fs" />
     <Compile Include="src/Eval/PrimitiveProcedures.fs" />
     <Compile Include="src/Eval/Runtime.fs" />

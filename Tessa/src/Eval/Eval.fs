@@ -1,7 +1,7 @@
 namespace Tessa.Eval
 
 open Tessa.Language
-open Tessa.Solve
+open Tessa.Solve.Types
 open Tessa.Parse
 open Tessa.Util
 open Tessa.Eval.Types
@@ -12,7 +12,7 @@ open Tessa.Eval.Runtime
 module Eval = 
     module P = Parse
     module L = Language
-    module S = Solve
+    module S = SolveTypes
     open Util
     open EvalTypes
     open PrimitiveProcedures
@@ -29,7 +29,6 @@ module Eval =
         // stackContext[i] has continuation stackContext[i + 1]
         continuations: StackExecutionContext list;
         currentContext: StackExecutionContext;
-        solveContext: S.SolveContext;
         reduction: Exp option;
     }
 
@@ -44,7 +43,7 @@ module Eval =
         environment = startingEnvironment;
         drawMap = Map.empty;
         geoCanon = S.emptyCanonicizerState;
-        polygons = [];
+        solvedShapes = Map.empty;
     }
 
     let emptyStackExecutionContext = {
@@ -56,7 +55,6 @@ module Eval =
     let emptyExecutionContext = {
         continuations = [];
         currentContext = emptyStackExecutionContext;
-        solveContext = S.emptySolveContext;
         reduction = None;
     }
 

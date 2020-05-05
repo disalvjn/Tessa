@@ -57,6 +57,8 @@ module Language =
         | SegmentExp of Segment
         | VarExp of name: string * Expression 
 
+    type Polygon = Polygon of centroid: Point * context: Segment list
+
     let inline asSegment (p:^t) = (^t: (static member ToSegment: ^t -> Segment) (p))
     let inline asSegmentable (p:^t) = (^t: (static member ToSegmentable: ^t -> CanMakeSegment) (p))
     // let inline (+) p q = Concat(asSegment p, asSegment q)

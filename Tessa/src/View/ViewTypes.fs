@@ -2,12 +2,12 @@ namespace Tessa.View.Types
 
 open System
 open Tessa.Language
-open Tessa.Solve
+open Tessa.Solve.Types
 
 // Precondition: everything fits in unit square before ops?
 module ViewTypes =
     module L = Language
-    module S = Solve
+    module S = SolveTypes
 
     type ViewMode =
         | Preview of label: string

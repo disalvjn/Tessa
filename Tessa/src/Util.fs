@@ -47,6 +47,10 @@ module State =
 
 
 module Result = 
+   let toOption = function 
+      | Ok o -> Some o 
+      | _ -> None 
+
    let bimap ok error = function
       | Ok o -> Ok <| ok o
       | Error e -> Error <| error e

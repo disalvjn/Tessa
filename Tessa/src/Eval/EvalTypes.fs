@@ -1,14 +1,17 @@
 namespace Tessa.Eval.Types
 
 open Tessa.Language
-open Tessa.Solve
+open Tessa.Solve.Types
 open Tessa.Parse
 
 // todo: make sure Parse and Solve both return Result
 module EvalTypes = 
     module P = Parse
     module L = Language
-    module S = Solve
+    module S = SolveTypes
+
+    type CellName = CellName of string
+    type PolygonName = PolygonName of CellName * int
 
     type PrimitiveProcedure = 
         | AddNumber
@@ -26,7 +29,7 @@ module EvalTypes =
         | Snip
         | Intersect 
         | Draw
-        | Lamda
+        | Lambda
 
     // todo: Need to pipe Lex pos into Parse so I can add positions here
     type EvalError =
@@ -62,12 +65,18 @@ module EvalTypes =
         | Array of Exp list
         // | Lambda
         | GeoExp of GeoExp
+        // An operation by itself does nothing, it's solved in the context of a point.
+        // But, they're still first class citizens. One solution is GeoExp having two branches,
+        // one for shapes and one for the operation.
+        | LOperation of L.Operation
+
+    and PolygonIndex = PolygonIndex of L.Operation option list
 
     and GeoExp =
         | LPoint of L.Point
         | LSegment of L.Segment
         | LLine of L.Line
-        | LOperation of L.Operation
+        | Polygon of centroid: L.Point * name: PolygonName * index: PolygonIndex
 
     let toNumber exp = 
         match exp with 
@@ -87,14 +96,21 @@ module EvalTypes =
         | AugmentEnvironment of Map<string, Exp>
         | DrawGeo of string * GeoExp
 
-    type DrawMap = Map<string, GeoExp list>
+
+    type DrawMap = Map<CellName, GeoExp list>
     type Environment = Map<string, Exp>
+
+
+    type SolvedShape = 
+        | Point of S.PointId * string 
+        | Segment of S.SegmentId * string
+        | Line of S.Line
 
     type Runtime = {
         drawMap: DrawMap;
         environment: Environment;
         geoCanon: S.CanonicizerState;
-        polygons: S.Polygon list;
+        solvedShapes: Map<CellName, SolvedShape list>;
     }
 
     type EvalResult = {
@@ -102,11 +118,3 @@ module EvalTypes =
         runtime: Runtime;
         error: EvalError option;
     }
-
-    type PolygonIndex = PolygonIndex of string
-
-    type SolvedShape = 
-        | Point of S.PointId * string 
-        | Segment of S.SegmentId * string
-        | Line of S.Line
-        | Polygon of S.Polygon * PolygonIndex

@@ -3,14 +3,16 @@ namespace Tessa.View
 open Tessa.View.Types
 open Tessa.Eval
 open Tessa.Eval.Types
-open Tessa.Solve
+open Tessa.Solve.Shapes
+open Tessa.Solve.Types
 open Tessa.Language
 open Tessa.Util
 
 module View = 
     open ViewTypes
     module E = EvalTypes
-    module S = Solve
+    module S = SolveShapes
+    module S = SolveTypes
     module L = Language
     open Util
 
@@ -22,15 +24,16 @@ module View =
         | E.LPoint (L.Absolute(x, y)) -> Some (x, y)
         | _ -> None
 
-    let solveGeoExp (solve: S.Solver)  exp = 
+    let solveGeoExp  exp = 
         // todo: refactor to prevent LOperation from being here.
         // todo: implement for polygons
         match exp with 
-        | E.LLine line -> solve.line line |> Result.map ViewLine
-        | E.LSegment s -> solve.segment s |> Result.map ViewSegment 
-        | E.LPoint p -> solve.point p |> Result.map ViewPoint
+        | E.LLine line -> S.solve.line line |> Result.map ViewLine
+        | E.LSegment s -> S.solve.segment s |> Result.map ViewSegment 
+        | E.LPoint p -> S.solve.point p |> Result.map ViewPoint
+        | E.Polygon (centroid, _, _) -> S.solve.point centroid |> Result.map ViewPoint
 
-    let viewsFromEvalResult (evalResult: E.EvalResult) (solve: S.Solver) 
+    let viewsFromEvalResult (evalResult: E.EvalResult)  
         : View list * (ViewMode * S.SolveError) list =
         let rec resultPartition = function 
             | [] -> ([], [])
@@ -51,15 +54,15 @@ module View =
         let (fromEnvOks, fromEnvErrors) = 
             env 
             |> Map.filterSome isGeoExp 
-            |> Map.mapList (fun label shape -> (Preview label, solveGeoExp solve shape)) 
+            |> Map.mapList (fun label shape -> (Preview label, solveGeoExp shape)) 
             |> resultPartition
 
         let (fromDrawOks, fromDrawErrors) = 
             draw 
-            |> Map.mapListMany (fun category shapes -> List.map (fun shape -> (Drawn category, solveGeoExp solve shape)) shapes) 
+            |> Map.mapListMany (fun (E.CellName category) shapes -> List.map (fun shape -> (Drawn category, solveGeoExp shape)) shapes) 
             |> resultPartition
 
-        let fromResult = result |> Option.bind isGeoExp |> Option.map (fun s -> [(Preview "Current Exp", solveGeoExp solve s)])
+        let fromResult = result |> Option.bind isGeoExp |> Option.map (fun s -> [(Preview "Current Exp", solveGeoExp s)])
 
         let (retOkays, retErrs) = (List.map toView <| fromEnvOks @ fromDrawOks, fromEnvErrors @ fromDrawErrors)
 
@@ -148,8 +151,8 @@ module View =
         | (ViewLine line, Preview label) -> [DrawSegment(applyLineTransform trans line, soptions label Dotted)]
         | (ViewLine line, Drawn label) -> [DrawSegment(applyLineTransform trans line, soptions label Solid)]
 
-    let drawableFromEvalResult (evalResult: E.EvalResult) (solve: S.Solver) targets = 
-        let (views, viewErrs) = viewsFromEvalResult evalResult solve 
+    let drawableFromEvalResult (evalResult: E.EvalResult) targets = 
+        let (views, viewErrs) = viewsFromEvalResult evalResult
         let absolutePoints = extractAbsolutes evalResult
         let trans = pointTranslation targets absolutePoints
         // printf "%A" trans
