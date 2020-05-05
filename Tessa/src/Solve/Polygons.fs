@@ -131,4 +131,4 @@ module SolvePolygons =
         let polyCentroid polygon = polygon.segments |> pointIds |> centroidOfIds
 
         let polygonsWithCentroids = List.map (fun p -> (polyCentroid p, p)) polygons 
-        List.sortBy (fun (c, p) -> c) polygonsWithCentroids
+        List.sortBy (fun ((x, y), p) -> (y, x)) polygonsWithCentroids
