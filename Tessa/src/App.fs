@@ -23,17 +23,23 @@ module App =
     open Browser.Dom
     open Fable.Core.JsInterop
 
-    let draw (ctx: Browser.Types.CanvasRenderingContext2D) (shape: V.DrawShape) =
+    type DrawOptions = {
+        drawPoints: bool;
+    }
+
+    let draw (ctx: Browser.Types.CanvasRenderingContext2D) drawOptions (shape: V.DrawShape) =
         // printf "%A" shape
         match shape with 
         | V.DrawPoint((x, y), options) ->
-            ctx.beginPath()
-            ctx.arc(x, y, 5.0, 0.0, 3.141592 * 2.0)
-            ctx.fillStyle <- !^ options.color
-            ctx.closePath()
-            ctx.fill()
-            ctx.font <- "18px Arial";
-            ctx.fillText(options.label, x- 10.0, y - 5.0)
+            if drawOptions.drawPoints
+            then 
+                ctx.beginPath()
+                ctx.arc(x, y, 5.0, 0.0, 3.141592 * 2.0)
+                ctx.fillStyle <- !^ options.color
+                ctx.closePath()
+                ctx.fill()
+                ctx.font <- "18px Arial";
+                ctx.fillText(options.label, x- 10.0, y - 5.0)
         | V.DrawPolygon(segments, options) -> 
             ctx.beginPath()
             let (fx, fy) = List.head segments
@@ -70,10 +76,9 @@ module App =
             let tessellation = L.Tessellation(cell, [])
 
             let targets = {V.boundingHeight = 800.0; V.boundingWidth = 800.0; V.topLeft = (100.0, 100.0); V.xMax = 1000.0; V.yMax = 1000.0;}
-            let draws = V.solveTessellation targets tessellation |> fromResult
+            let drawable = V.solveTessellation targets tessellation Map.empty |> fromResult
 
-            writeError draws
-
+            writeError drawable
 
             // let (drawable, errs) = V.drawableFromEvalResult result targets
             // List.iter writeError errs
@@ -81,7 +86,7 @@ module App =
             // printf "%A" errs
             ctx.clearRect(0.0, 0.0, 1000.0, 1000.0)
 
-            List.iter (draw ctx) draws
+            List.iter (draw ctx {drawPoints = true}) drawable
         with 
             | e -> writeError e
 

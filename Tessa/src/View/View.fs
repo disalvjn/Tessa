@@ -60,19 +60,16 @@ module View =
     let applyPointTransform trans (point: S.Point) = 
         {S.x = trans.xScale * point.x + trans.xTrans; S.y = trans.yScale * point.y + trans.yTrans;}
     
-    type ViewFromTessellationOptions = {
-        showPolygonCentroids: bool;
-    }
-
     let rec indexAppliesTo lindex pindex = 
         match (lindex, pindex) with
         | ([], []) -> true
         | (L.Ind n :: ls, m :: ps) -> n = m && indexAppliesTo ls ps
         | _ -> false
 
-    let solveTessellation targets (L.Tessellation(cell, effects)) =
+    let solveTessellation targets (L.Tessellation(cell, effects)) (labeledPoints: Map<string, L.Point>) =
         result {
             let! (polygons, canonState) = S.solveCell cell
+            let! solvedLabeledPoints = Map.mapList (fun label point -> S.solve.point point |> Result.map (fun p -> (label, p))) labeledPoints |> Result.sequence
             let transform = pointTranslation targets <| Map.values canonState.idToPoint
             let scaledCanon = S.mapPoints (applyPointTransform transform) canonState
 
@@ -87,11 +84,18 @@ module View =
                     | _ -> []
                         // |> List.distinct
                 DrawPolygon(origDests, {color = "#004080"})
-
-            return List.map toDrawPoly polygons
+            
+            let toDrawPointFromPoly i p =
+                let point = S.pointIdToPoint scaledCanon p
+                DrawPoint ((point.x, point.y), {color = "#004080"; label = string i})
+            
+            return List.map toDrawPoly polygons 
+                @ List.mapi (fun i (polygon: S.Polygon) -> toDrawPointFromPoly i polygon.centroid) polygons
+                // todo: need to look this up in canon also.
+                // @ List.map (fun (label, point: S.Point) -> DrawPoint((point.x, point.y), {color = "#004080"; label=label})) solvedLabeledPoints
         }
 
-    // let viewsFromTessellation ((L.Tessellation(cell, effects)): L.Tessellation) (pointLabels: Map<string, L.Point>) options =
+    // let viewsFromTessellation ((L.Tessellation(cell, effects)): L.Tessellation) (pointLabels: Map<string, L.Point>) =
     // result {
     //         // let! solvedPoints = pointLabels |> Map.mapList (fun k v -> S.solve.point v) |> Result.sequence
     //         // todo: provision pointIds with canonState, return if showPolygonCentroid is true

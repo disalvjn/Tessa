@@ -167,6 +167,8 @@ module SolvePolygons =
         let newCanon = {mapPointIds update canonState with nextId = offset * 2 + 2}
         (mapPolygon update polygons, newCanon)
 
+    // Polygon * CanonState should be its own record with fns defined on it like mapPoint and mapPointId.
+    // MapPoint automatically copies.
     let solveCell (cell: L.Cell) = 
         match cell with 
         | L.Primary segments -> solvePolygons segments
