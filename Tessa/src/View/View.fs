@@ -78,10 +78,12 @@ module View =
 
             let toTup (p: S.Point) = (p.x, p.y)
             let toDrawPoly (polygon: S.Polygon) = 
+                let (S.SegmentId(p, q) :: restSegments) = polygon.segments
                 let origDests = 
-                    polygon.segments
-                    |> List.collect (fun (S.SegmentId(p, q)) ->  [toTup <| S.pointIdToPoint scaledCanon p; toTup <| S.pointIdToPoint scaledCanon q])
-                    |> List.distinct
+                    toTup (S.pointIdToPoint scaledCanon p)
+                    :: toTup (S.pointIdToPoint scaledCanon q)
+                    :: (restSegments |> List.map (fun (S.SegmentId(_, q)) ->  toTup <| S.pointIdToPoint scaledCanon q))
+                    // |> List.distinct
                 DrawPolygon(origDests, {color = "#004080"})
 
             return List.map toDrawPoly polygons

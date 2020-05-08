@@ -186,14 +186,19 @@ module SolveTests =
 
     [<Fact>]
     let ``Closed 1`` () =
-        let isClosed ps = ps |> List.map (fun (x,y) -> Set.ofList [PointId x; PointId y]) |> Set.ofList |> closed
+        let isClosed ps = 
+            ps 
+            |> List.map (fun (x,y) -> Set.ofList [PointId x; PointId y]) 
+            |> Set.ofList 
+            |> closed
+            |> Option.map (fun c -> List.map (fun (SegmentId(PointId p, PointId q)) -> (p, q)) c)
 
-        Assert.Equal(true, Option.isNone <| isClosed [(1,2); (2, 3);])
-        Assert.Equal(true, Option.isNone <| isClosed [(1,2)])
-        Assert.Equal(true, Option.isNone <| isClosed [(1,3)])
-        Assert.Equal(true, Option.isSome <| isClosed [(1,2); (1,4); (2,4)])
-        Assert.Equal(true, Option.isSome <| isClosed [(2, 3); (3, 4); (4, 2)])
-        Assert.Equal(true, Option.isSome <| isClosed [(1,2);(1,4);(2,3);(4,3)])
+        Assert.Equal(None, isClosed [(1,2); (2, 3);])
+        Assert.Equal(None, isClosed [(1,2)])
+        Assert.Equal(None, isClosed [(1,3)])
+        Assert.Equal(Some [(1,2); (2,4); (4, 1)], isClosed [(1,2); (1,4); (2,4)])
+        Assert.Equal(Some [(2, 3); (3, 4); (4, 2);], isClosed [(2, 3); (3, 4); (4, 2)])
+        Assert.Equal(Some [(1,2);(2,3);(3,4);(4,1)], isClosed [(1,2);(1,4);(2,3);(4,3)])
 
     let toSegmentIds points  =
         Seq.zip points (List.tail points)
