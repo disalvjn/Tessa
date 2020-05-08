@@ -100,17 +100,9 @@ module EvalTypes =
     type DrawMap = Map<CellName, GeoExp list>
     type Environment = Map<string, Exp>
 
-
-    type SolvedShape = 
-        | Point of S.PointId * string 
-        | Segment of S.SegmentId * string
-        | Line of S.Line
-
     type Runtime = {
         drawMap: DrawMap;
         environment: Environment;
-        geoCanon: S.CanonicizerState;
-        solvedShapes: Map<CellName, SolvedShape list>;
     }
 
     type EvalResult = {

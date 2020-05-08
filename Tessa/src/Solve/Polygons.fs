@@ -16,49 +16,6 @@ module SolvePolygons =
     module S = SolveShapes
     module L = Language
 
-    let equalEnoughEps p q eps = 
-        (abs (p.x - q.x)) < eps && (abs (p.y - q.y)) < eps
-
-    //
-    // POLYGONS
-    //
-
-    let pointIdToPoint cstate pointId =
-        // it's a bit sketkchy using find instead of tryFind. We'll get an exception
-        // if there is no such id. But as long as we're getting ids by the state's provisioning we'll
-        // be fine.
-        Map.find pointId cstate.idToPoint 
-
-    let segmentIdToSegment cstate (SegmentId(p, q)) = 
-        Straight(pointIdToPoint cstate p, pointIdToPoint cstate q)
-
-    let pointToPointId point = 
-        state {
-            // could optimize by having an incomplete pointToPointId map -- incomplete because
-            // it wouldn't account for all possible epsilon-allowed variations. 
-            // but we're not going from raw to id nearly as often as id to raw, so I don't think
-            // it's worth the extra complexity for now.
-            let! s = State.get
-            let literallyExisting = Map.tryFind point s.pointToId
-            let (pointId, state) = 
-                match literallyExisting with 
-                | Some pointId -> (pointId, s)
-                | None -> 
-                    let newId = PointId s.nextId
-                    (newId, {s with nextId = s.nextId + 1; idToPoint = Map.add newId point s.idToPoint; pointToId = Map.add point newId s.pointToId})
-            do! State.put state 
-            return pointId
-        }
-    
-    let segmentToSegmentId (Straight(orig, dest)) = 
-        state {
-            let! orig' = pointToPointId orig 
-            let! dest' = pointToPointId dest 
-            return SegmentId (orig', dest')
-        }
-
-    // let canonicalize points = 
-    //     List.allPairs // map from original to canon
     let atomizeSegment segment chain = 
         let rec splits atoms = 
             match atoms with 
@@ -76,11 +33,9 @@ module SolvePolygons =
         Set.ofList [segment] |> go |> Set.toList
 
     let atomizeSegments segments =
-        let atomized = List.collect (fun s -> atomizeSegment s segments) segments 
-        let canonicized = State.sequence <| List.map segmentToSegmentId atomized
-        State.run canonicized emptyCanonicizerState
+        List.collect (fun s -> atomizeSegment s segments) segments 
 
-    let closed (pointSet: Set<Set<PointId>>) = 
+    let closed (pointSet: Set<Set<Point>>) = 
         let rec asTuples pointLinks visitedBegin = 
             match pointLinks with
             | [] -> []
@@ -106,19 +61,20 @@ module SolvePolygons =
         let tupled = asTuples (Set.toList (Set.map Set.toList pointSet)) Set.empty
         let (beginnings, endings) = List.unzip tupled
         let closedPath = Set.ofList beginnings = Set.ofList endings
-        if closedPath then Some <| List.map SegmentId (orderThem tupled) else None
+        if closedPath then Some <| List.map Straight (orderThem tupled) else None
 
     // join must work when only some segments form completed polygons and must allow other segments to continue existing
-    let joinToPolygonsAsSegments (segments : SegmentId list) : SegmentId list list = 
+    let joinToPolygonsAsSegments (segments : Segment list) : Segment list list = 
 
-        let polygonIsSuperset (p1: Set<Set<PointId>>) (p2: Set<Set<PointId>>) = 
+        // todo: this is not true
+        let polygonIsSuperset (p1: Set<Set<Point>>) (p2: Set<Set<Point>>) = 
             // it's point based, not segment based
             let allPointsP1 = p1 |> Set.toList |> List.collect Set.toList |> Set.ofList
             let allPointsP2 = p2 |> Set.toList |> List.collect Set.toList |> Set.ofList
             Set.isSuperset allPointsP1 allPointsP2
 
         // It is 2020 after all...
-        let rec go (points: PointId list) (visitedPoints: Set<PointId>) (candidates: Set<Set<PointId>> list) (elected: Set<Set<PointId>> list) = 
+        let rec go (points: Point list) (visitedPoints: Set<Point>) (candidates: Set<Set<Point>> list) (elected: Set<Set<Point>> list) = 
             match points with 
             | [] -> List.map closed elected |> somes 
             | p :: ps -> 
@@ -137,35 +93,29 @@ module SolvePolygons =
 
                 go ps (Set.add p visitedPoints) newCandidates (newPolygons @ prunedExistingPolygons)
 
-        let allPoints = List.collect (fun (SegmentId(p, q)) -> [p; q]) segments |> List.distinct
-        let initialCandidates = List.map (fun (SegmentId(p, q)) -> Set.ofList [Set.ofList [p; q]]) segments
+        let allPoints = List.collect (fun (Straight(p, q)) -> [p; q]) segments |> List.distinct
+        let initialCandidates = List.map (fun (Straight(p, q)) -> Set.ofList [Set.ofList [p; q]]) segments
 
         go allPoints Set.empty initialCandidates []
 
-    let orderByCentroids canonState (polygons: SegmentId list list) = 
-        let pointIds polygon = List.collect (fun (SegmentId(p, q)) -> [p; q]) polygon |> List.distinct
-        let centroid points = {x = List.sumBy (fun p -> p.x) points / (float <| List.length points); y = List.sumBy (fun p -> p.y) points / (float <| List.length points)}
-        let centroidOfIds pointIds = List.map (pointIdToPoint canonState) pointIds |> centroid
-        let polyCentroid polygon = polygon |> pointIds |> centroidOfIds
+    let orderByCentroids (polygons: Segment list list) = 
+        let centroid points = {
+            x = List.sumBy (fun p -> p.x) points / (float <| List.length points); 
+            y = List.sumBy (fun p -> p.y) points / (float <| List.length points)}
+        // The polygon is closed, so every orig point is also a dest point and vice versa, so we only need to take one of the points from each segment.
+        let polyCentroid polygon = centroid <| List.map (fun (Straight(p, q)) -> p) polygon
 
         let polygonsWithCentroids = List.map (fun p -> (polyCentroid p, p)) polygons 
         let sorted = List.sortBy (fun (centroid, p) -> (centroid.y, centroid.x)) polygonsWithCentroids
-        let indexed = List.mapi (fun i (centroid, polygon) -> pointToPointId centroid |> State.map (fun pointId -> {centroid = pointId; index = [i]; segments = polygon})) sorted
-        State.run (State.sequence indexed) canonState
+        List.mapi (fun i (centroid, polygon) -> {centroid = centroid; index = [i]; segments = polygon}) sorted
 
     let solvePolygons segments = 
         result {
-            let! (atomized, beforeCentroidCanon) = List.map S.solve.segment segments |> Result.sequence |> Result.map (List.concat >> atomizeSegments)
+            let! atomized = List.map S.solve.segment segments |> Result.sequence |> Result.map (List.concat >> atomizeSegments)
             let joinedAsSegments = joinToPolygonsAsSegments atomized 
-            let (afterCentroidCanon, polygons) = orderByCentroids beforeCentroidCanon joinedAsSegments
-            return (afterCentroidCanon, polygons)
+            let polygons = orderByCentroids joinedAsSegments
+            return polygons
         }
-
-    let copyPolygons (polygons, canonState) = 
-        let offset = canonState.nextId
-        let update (PointId(i)) = PointId(i + offset)
-        let newCanon = {mapPointIds update canonState with nextId = offset * 2 + 2}
-        (mapPolygon update polygons, newCanon)
 
     // Polygon * CanonState should be its own record with fns defined on it like mapPoint and mapPointId.
     // MapPoint automatically copies.

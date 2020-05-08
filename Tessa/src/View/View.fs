@@ -68,31 +68,31 @@ module View =
 
     let solveTessellation targets (L.Tessellation(cell, effects)) (labeledPoints: Map<string, L.Point>) =
         result {
-            let! (polygons, canonState) = S.solveCell cell
+            let! rawPolygons = S.solveCell cell
             let! solvedLabeledPoints = Map.mapList (fun label point -> S.solve.point point |> Result.map (fun p -> (label, p))) labeledPoints |> Result.sequence
-            let transform = pointTranslation targets <| Map.values canonState.idToPoint
-            let scaledCanon = S.mapPoints (applyPointTransform transform) canonState
+            let transform = pointTranslation targets <| (List.map (fun (x, y) -> y) solvedLabeledPoints) @ S.allPoints rawPolygons
+            let scaledPolygons = S.mapPointsPolygons (applyPointTransform transform) rawPolygons
+            let scaledLabeledPoints = List.map (fun (l, p) -> (l, applyPointTransform transform p)) solvedLabeledPoints
+            // let scaledLabelPoints = 
 
             let toTup (p: S.Point) = (p.x, p.y)
             let toDrawPoly (polygon: S.Polygon) = 
                 let origDests = 
                     match polygon.segments with 
-                    | (S.SegmentId(p, q) :: restSegments) ->
-                        toTup (S.pointIdToPoint scaledCanon p)
-                        :: toTup (S.pointIdToPoint scaledCanon q)
-                        :: (restSegments |> List.map (fun (S.SegmentId(_, q)) ->  toTup <| S.pointIdToPoint scaledCanon q))
+                    | (S.Straight(p, q) :: restSegments) ->
+                        toTup p 
+                        :: toTup q 
+                        :: (restSegments |> List.map (fun (S.Straight(_, q)) ->  toTup q))
                     | _ -> []
                         // |> List.distinct
                 DrawPolygon(origDests, {color = "#004080"})
             
-            let toDrawPointFromPoly i p =
-                let point = S.pointIdToPoint scaledCanon p
-                DrawPoint ((point.x, point.y), {color = "#004080"; label = string i})
+            let toDrawPointFromPoly i (p: S.Point) =
+                DrawPoint ((p.x, p.y), {color = "#004080"; label = string i})
             
-            return List.map toDrawPoly polygons 
-                @ List.mapi (fun i (polygon: S.Polygon) -> toDrawPointFromPoly i polygon.centroid) polygons
-                // todo: need to look this up in canon also.
-                // @ List.map (fun (label, point: S.Point) -> DrawPoint((point.x, point.y), {color = "#004080"; label=label})) solvedLabeledPoints
+            return List.map toDrawPoly scaledPolygons
+                @ List.mapi (fun i (polygon: S.Polygon) -> toDrawPointFromPoly i polygon.centroid) scaledPolygons
+                @ List.map (fun (label, point: S.Point) -> DrawPoint((point.x, point.y), {color = "#004080"; label=label})) scaledLabeledPoints
         }
 
     // let viewsFromTessellation ((L.Tessellation(cell, effects)): L.Tessellation) (pointLabels: Map<string, L.Point>) =

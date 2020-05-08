@@ -46,44 +46,17 @@ module SolveTypes =
         point: L.Point -> Result<Point, SolveError>;
     }
 
-    type PointId = PointId of int
-    type SegmentId = SegmentId of PointId * PointId 
-
-    // canonicalize points phase, eps = 0.001 maybe
-    // this changes input to View
-
     type Polygon = {
-        segments: SegmentId list;
+        segments: Segment list;
         index: int list;
-        centroid: PointId;
+        centroid: Point;
     }
 
-    let mapPolygon f polygon = 
+    let mapPointsPolygon f polygon = 
         {polygon with 
             centroid = f polygon.centroid;
-            segments = List.map (fun (SegmentId(p, q)) -> SegmentId(f p, f q)) polygon.segments}
+            segments = List.map (fun (Straight(p, q)) -> Straight(f p, f q)) polygon.segments}
 
-    type CanonicizerState = {
-        epsilon: float;
-        idToPoint: Map<PointId, Point>;
-        pointToId: Map<Point, PointId>;
-        nextId: int;
-    }
+    let mapPointsPolygons f polygons = List.map (mapPointsPolygon f) polygons
 
-    let mapPoints f canonState =
-        {canonState with 
-            idToPoint = Map.map (fun k v -> f v) canonState.idToPoint; 
-            pointToId = Map.mapList (fun k v -> (f k, v)) canonState.pointToId |> Map.ofList}
-
-    let mapPointIds f canonState = 
-        {canonState with 
-            pointToId = Map.map (fun k v -> f v) canonState.pointToId;
-            idToPoint = Map.mapList (fun k v -> (f k, v)) canonState.idToPoint |> Map.ofList}
-
-    let emptyCanonicizerState = {
-        epsilon = 0.001;
-        idToPoint = Map.empty; 
-        pointToId = Map.empty;
-        nextId = 0;
-    }
-
+    let allPoints polygons = List.collect (fun p -> List.collect (fun (Straight(p, q)) -> [p; q;]) p.segments) polygons

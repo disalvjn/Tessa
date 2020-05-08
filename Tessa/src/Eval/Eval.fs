@@ -42,8 +42,6 @@ module Eval =
     let emptyRuntime = {
         environment = startingEnvironment;
         drawMap = Map.empty;
-        geoCanon = S.emptyCanonicizerState;
-        solvedShapes = Map.empty;
     }
 
     let emptyStackExecutionContext = {
