@@ -40,14 +40,10 @@ module SolveTypes =
         | SegmentSnipped of Segment * SolveError option
         | MergeSegmentChains of string * SegmentChain * SegmentChain * SolveError option
 
-    type PointSolver = L.Point -> Result<Point, SolveError>
-    type SegmentSolver = L.Segment -> Result<SegmentChain, SolveError>
-    type LineSolver = L.Line -> Result<Line, SolveError>
-
     type Solver = {
-        line: LineSolver;
-        segment: SegmentSolver;
-        point: PointSolver;
+        line: L.Line -> Result<Line, SolveError>;
+        segment: L.Segment -> Result<SegmentChain, SolveError>;
+        point: L.Point -> Result<Point, SolveError>;
     }
 
     type PointId = PointId of int
@@ -58,17 +54,26 @@ module SolveTypes =
 
     type Polygon = {
         segments: SegmentId list;
+        index: int list;
+        centroid: PointId;
     }
 
     type CanonicizerState = {
         epsilon: float;
         idToPoint: Map<PointId, Point>;
+        pointToId: Map<Point, PointId>;
         nextId: int;
     }
+
+    let mapPoints f canonState =
+        {canonState with 
+            idToPoint = Map.map (fun k v -> f v) canonState.idToPoint; 
+            pointToId = Map.mapList (fun k v -> (f k, v)) canonState.pointToId |> Map.ofList}
 
     let emptyCanonicizerState = {
         epsilon = 0.001;
         idToPoint = Map.empty; 
+        pointToId = Map.empty;
         nextId = 0;
     }
 

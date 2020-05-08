@@ -9,25 +9,6 @@ module ViewTypes =
     module L = Language
     module S = SolveTypes
 
-    type ViewMode =
-        | Preview of label: string
-        | Drawn of label: string
-
-    // find bounding box, scale up *, move to middle +
-
-    type Point = {x: float; y: float;}
-    type Segment = {orig: Point; dest: Point;}
-
-    type ViewShape = 
-        | ViewPoint of S.Point
-        | ViewSegment of S.SegmentChain
-        | ViewLine of S.Line
-
-    type View = {
-        viewShape: ViewShape;
-        viewMode: ViewMode;
-    }
-
     type DrawTargets = {
         topLeft: float * float; 
         boundingWidth: float;
@@ -35,36 +16,15 @@ module ViewTypes =
         xMax: float; 
         yMax: float;
     }
-
-    type LineStyle = 
-        | Solid 
-        | Dotted
-
-    type LineWidth =
-        | ExtraThin
-        | Thin 
-        | Medium 
-        | Thick
-        | ExtraThick
-
-    type SegmentDrawOptions = {
+    type PolygonDrawOptions = {
         color: string;
-        label: string;
-        lineStyle: LineStyle;
-        lineWidth: LineWidth;
-        accentuatePoints: bool;
     }
-
-    type PointStyle = 
-        | Filled
-        | Hollow
 
     type PointDrawOptions = {
         color: string;
         label: string; 
-        pointStyle: PointStyle;
     }
 
     type DrawShape = 
-        | DrawPoint of Point * PointDrawOptions
-        | DrawSegment of Segment  * SegmentDrawOptions
+        | DrawPoint of (float * float) * PointDrawOptions
+        | DrawPolygon of (float * float) list  * PolygonDrawOptions

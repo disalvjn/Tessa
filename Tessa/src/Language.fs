@@ -20,7 +20,6 @@ module Language =
         | OnSegment of PointOnSegment
         | Intersection of Line * Line
         static member ToSegmentable p1 = SinglePoint(p1)
-        static member Expression p1 = PointExp(p1)
 
     and PointOnSegment =
         | PointOnSegment of position: double * segment: Segment
@@ -33,7 +32,6 @@ module Language =
         | Perpendicular of  position: double * originSegment: Segment * endSegment: Segment
         | Snipped of original: Segment * cutAt: Segment
         static member ToSegmentable s = AlreadySegment(s)
-        static member Expression s = SegmentExp(s)
         static member ToLine s = ExtendSegment(s)
 
     and CanMakeSegment = 
@@ -52,12 +50,36 @@ module Language =
         | GlideAround of pinned: Point * ``from``: Point * ``to``: Point
         | Rotate of direction: RotationDirection * angle: Rotation * point: Point
 
-    and Expression =
-        | PointExp of Point
-        | SegmentExp of Segment
-        | VarExp of name: string * Expression 
+    type CellOp =
+        | Identity
+        | MirrorOver of Line
 
-    type Polygon = Polygon of centroid: Point * context: Segment list
+    type Cell = 
+        | Primary of Segment list 
+        | Combined of (int * Cell) list 
+        | Transformed of CellOp * Cell
+
+    type Index = 
+        | AllEndingAt of int
+        | Ind of int
+        | ManyInd of int list
+        | Any
+
+    type Effect = 
+        | Color of color: string 
+        // | Embed of Tessellation 
+
+    and Tessellation = Tessellation of Cell *  (Index list * Effect) list 
+
+    let doubleMirror horizLine vertLine cell = 
+        let left = cell
+        let right = Transformed(MirrorOver vertLine, cell)
+        let bottomRight = Transformed(MirrorOver horizLine, right)
+        let bottomLeft =  Transformed(MirrorOver horizLine, cell)
+        Combined [(0, left); (1, right); (2, bottomRight); (3, bottomLeft)]
+
+
+
 
     let inline asSegment (p:^t) = (^t: (static member ToSegment: ^t -> Segment) (p))
     let inline asSegmentable (p:^t) = (^t: (static member ToSegmentable: ^t -> CanMakeSegment) (p))
@@ -70,6 +92,11 @@ module Language =
             | (AlreadySegment x, SinglePoint y) -> Chain(x, y)
             | (AlreadySegment x, AlreadySegment y) -> Concat(x, y)
     let inline (+) p q = add p q
+
+    let linkpp p q = Link(q, p)
+    let linkps s p = ReverseChain(p, s)
+    let linksp p s = Chain(s, p)
+    let linkss s r = Concat(r, s)
 
     let inline asLine (x:^t) = (^t: (static member ToLine: ^t -> Line) (x))
     let inline (*) x y = Intersection(asLine x, asLine y)
@@ -86,9 +113,6 @@ module Language =
 
     let (%) p r = Operated(p, r)
 
-
-    let inline Expression (x:^t) = (^t: (static member Expression: ^t -> Expression) (x))
-    let var name x = VarExp(name, Expression x)
 
 module PrimitiveCells = 
     open Language
@@ -108,7 +132,7 @@ module PrimitiveCells =
         Top: Point;
     }
 
-    type Builder<'a> = 'a -> Segment list * Expression list
+    type Builder<'a> = 'a -> Segment list
 
     let splitFocal2 (focal: Point) (farBorder: Segment) (nearBorder: Segment) =
         let segmentAt at = (farBorder @ at) + focal |-| nearBorder 
@@ -158,7 +182,64 @@ module Examples =
 
         let (s1, s2, s3, s4, s5) = splitFocal5 focal leftBorder rightBorder
 
-        ([border; s1; s2; s3; s4; s5], [var "i1" i1; var "i2" i2; var "i1 % r1" <| i1 % r1; var "i2 % r2" <| i2 % r2])
+        [border; s1; s2; s3; s4; s5]
+    
+    // page 57, bottom left
+    let buildSample:Builder<Square> = fun square ->
+        // A recursive tessellation:
+        // 'makeIt = ('on-color => '(
+        // 'cell = (:cell)
+        // [] 'a 'b 'c 'd = (:square cell)
+        //
+        // a + b + c + d + a !;
+        // (a + d @ 1/2) + (a + b @ 1/2) + (b + c @ 1/2) + (a + d @ 1/2) !;
+        // (a + d @ 0.5) + (c + d @ 0.5) !;
+        // a + d |- 1/2 (b + c) @ 1/2 + c !;
+        //
+        // cell :doubleMirror (c + d) (b + c);));
+        //
+        // 'inner = (:makeIt :color 'purple _ ([] 1 4));
+        // 'outer = (:makeIt :embed inner 1/10 _ ([] 1 4));
+        // outer <#> 10 10;
+        //
+        // An overlay:
+        // 'cell1 = (:cell)
+        // 'cell2 = (:cell)
+        // ... (:square cell1) ... (:square cell2) ... 
+        // cell1 <#> 1 2 ; 
+        // cell2 <#> 20 40;
+        // So ! adds to a cell, says it's relevant rather than just an assignment. Uses cell passed into primitive like :square or :triangle.
+        // <#> tessellates given an x-repetition y-repetition. Overlays work by fitting both to screen, accounting for size.
+        //
+        // Evaluator's goal is just to build this structure that can be passed off to the Solver and Viewer without them caring where it came from.
+        // So Runtime shouldn't have a Solver.
+        // 
+        // Evaluator generates: bound structures (points, segments) and their labels; the current expression; the cells.
+
+        let {TopLeft =a; TopRight= b; BottomRight=c; BottomLeft=d;} = square
+        let border = a + b + c + d + a
+        let innerTriangle = (a + d @ 0.5) + (a + b @ 0.5) + (b + c @ 0.5) + (a + d @ 0.5)
+        let leftDiagDown = (a + d @ 0.5) + (c + d @ 0.5)
+        let rightDiagDown = (a + d -|> (0.5, b + c) @ 0.5) + c
+
+        // we've done some !'s.
+        // (:square 'cell)
+        // ...
+        // cell :doubleMirror (c + d) (b + c)
+        let cell = doubleMirror (asLine (c + d)) (asLine (b + c)) <| Primary [border; innerTriangle; leftDiagDown; rightDiagDown]
+
+        // let effects = [
+        //     ([Any; ManyInd [1;4]], Color("purple"))
+        //     // Indices are just concatenated
+        //     // if we embed, we'd have double-mirror -> polygon -> double-mirror -> polygon
+        //     // So solve can rewrite this and produce new effects without touching the actual effects
+        //     // Or we can have a pass that rewrites and calls into solve, more accurately
+        //     ([Any; ManyInd [0;2;3;5]], Embed(cell, 0.33, [([Any; ManyInd [1;4]], Color("purple"))]))
+        // ]
+
+        // let tessellation = Tessellation(cell, effects)
+
+        []
 
 
     // Designing Tessellations p176
@@ -202,5 +283,5 @@ module Examples =
         let upChain = (a + c @ 0.25) + (a + b @ 0.66) + middleUpVertex + (c + b @ 0.66) + (c + a @ 0.25)
         let finalUp = b + middleUpVertex
 
-        ([a + b + c; down1 + down2; upChain; finalUp], [])
+        [a + b + c; down1 + down2; upChain; finalUp]
 

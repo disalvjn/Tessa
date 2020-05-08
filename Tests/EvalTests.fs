@@ -155,12 +155,13 @@ module EvalTests =
             (c + d !'k);
             """
         let er = evalResult program 
+        let x = er.runtime.drawMap
 
-        let expected = Map.add "k" [
+        let (expected: E.DrawMap) = Map.add (E.CellName "k") [
                 L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0)) |> E.LSegment;
                 L.Link(L.Absolute(0.0, 1.0), L.Absolute(1.0, 1.0)) |> E.LSegment;] Map.empty
 
-        Assert.Equal<Map<string, E.GeoExp list>>(expected, er.runtime.drawMap)
+        Assert.Equal<E.DrawMap>(expected, er.runtime.drawMap)
 
     [<Fact>]
     let ``Test Incomplete Draw`` () = 
@@ -172,9 +173,9 @@ module EvalTests =
             """
         let er = evalResult program 
 
-        let expected = Map.add "k" [
+        let (expected: E.DrawMap) = Map.add (E.CellName "k") [
                 L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0)) |> E.LSegment;
                 L.Link(L.Absolute(0.0, 1.0), L.Absolute(1.0, 1.0)) |> E.LSegment;] Map.empty
 
-        Assert.Equal<Map<string, E.GeoExp list>>(expected, er.runtime.drawMap)
+        Assert.Equal<E.DrawMap>(expected, er.runtime.drawMap)
         

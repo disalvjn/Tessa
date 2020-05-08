@@ -7,6 +7,7 @@ open Tessa.Eval.Types
 open Tessa.Lex
 open Tessa.Parse
 open Tessa.Util
+open Tessa.Language
 
 module App = 
     module V = View
@@ -16,6 +17,7 @@ module App =
     module S = SolveShapes
     module Lex = Lex 
     module Parse = Parse
+    module L = Language
     open Util
 
     open Browser.Dom
@@ -24,19 +26,22 @@ module App =
     let draw (ctx: Browser.Types.CanvasRenderingContext2D) (shape: V.DrawShape) =
         // printf "%A" shape
         match shape with 
-        | V.DrawPoint(point, options) ->
+        | V.DrawPoint((x, y), options) ->
             ctx.beginPath()
-            ctx.arc(point.x, point.y, 5.0, 0.0, 3.141592 * 2.0)
+            ctx.arc(x, y, 5.0, 0.0, 3.141592 * 2.0)
             ctx.fillStyle <- !^ options.color
             ctx.closePath()
             ctx.fill()
             ctx.font <- "18px Arial";
-            ctx.fillText(options.label, point.x- 10.0, point.y - 5.0)
-        | V.DrawSegment(segment, options) -> 
+            ctx.fillText(options.label, x- 10.0, y - 5.0)
+        | V.DrawPolygon(segments, options) -> 
             ctx.beginPath()
-            ctx.moveTo(segment.orig.x, segment.orig.y)
-            ctx.lineTo(segment.dest.x, segment.dest.y)
+            let (fx, fy) = List.head segments
+            ctx.moveTo(fx, fy)
+            List.iter ctx.lineTo (List.tail segments)
+            // ctx.lineTo(fx, fy)
             ctx.closePath()
+            ctx.fillStyle <- !^ options.color
             ctx.strokeStyle <- !^ options.color
             ctx.stroke()
             // ctx.fill()
@@ -48,26 +53,35 @@ module App =
 
     let go (ctx: Browser.Types.CanvasRenderingContext2D) (writeError: obj -> unit) program = 
         try 
-            let lexed = Lex.lex program 
-            // printf "%A" lexed 
+            // let lexed = Lex.lex program 
+            // // printf "%A" lexed 
 
-            let parsed = lexed |> fromResult |> List.map fst |> Parse.parseList
-            // printf "%A" parsed
+            // let parsed = lexed |> fromResult |> List.map fst |> Parse.parseList
+            // // printf "%A" parsed
 
-            let result = parsed |> fromResult |> fst |> E.eval
-            Option.iter writeError result.error
+            // let result = parsed |> fromResult |> fst |> E.eval
+            // Option.iter writeError result.error
 
-            // printf "%A" result
+            // // printf "%A" result
+            let (a, b, c, d) = (L.Absolute(0.0, 0.0), L.Absolute(1.0, 0.0), L.Absolute(1.0, 1.0), L.Absolute (0.0, 1.0))
+            let border = [a |> L.linkpp b |> L.linksp c |> L.linksp d |> L.linksp a]
+            writeError border
+            let cell = L.Primary <| border  // @ [L.linkpp a c] @ [L.linkpp b d]
+            let tessellation = L.Tessellation(cell, [])
 
-            let targets = {V.boundingHeight = 500.0; V.boundingWidth = 500.0; V.topLeft = (200.0, 200.0); V.xMax = 1000.0; V.yMax = 1000.0;}
+            let targets = {V.boundingHeight = 800.0; V.boundingWidth = 800.0; V.topLeft = (100.0, 100.0); V.xMax = 1000.0; V.yMax = 1000.0;}
+            let draws = V.solveTessellation targets tessellation |> fromResult
 
-            let (drawable, errs) = V.drawableFromEvalResult result targets
-            List.iter writeError errs
+            writeError draws
+
+
+            // let (drawable, errs) = V.drawableFromEvalResult result targets
+            // List.iter writeError errs
             // printf "%A" drawable
             // printf "%A" errs
             ctx.clearRect(0.0, 0.0, 1000.0, 1000.0)
 
-            List.iter (draw ctx) drawable
+            List.iter (draw ctx) draws
         with 
             | e -> writeError e
 

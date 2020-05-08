@@ -13,6 +13,8 @@ module SolvePolygons =
     open SolveTypes 
     open Util
     module S = SolveShapesInternal
+    module S = SolveShapes
+    module L = Language
 
     let equalEnoughEps p q eps = 
         (abs (p.x - q.x)) < eps && (abs (p.y - q.y)) < eps
@@ -37,13 +39,15 @@ module SolvePolygons =
             // but we're not going from raw to id nearly as often as id to raw, so I don't think
             // it's worth the extra complexity for now.
             let! s = State.get
-            let existing = Map.toList s.idToPoint |> List.filter (fun (id, q) -> equalEnoughEps point q s.epsilon) |> List.tryHead
-            match existing with 
-            | Some (pointId, _) -> return pointId
-            | None -> 
-                let newId = PointId s.nextId
-                do! State.put {s with nextId = s.nextId + 1; idToPoint = Map.add newId point s.idToPoint}
-                return newId
+            let literallyExisting = Map.tryFind point s.pointToId
+            let (pointId, state) = 
+                match literallyExisting with 
+                | Some pointId -> (pointId, s)
+                | None -> 
+                    let newId = PointId s.nextId
+                    (newId, {s with nextId = s.nextId + 1; idToPoint = Map.add newId point s.idToPoint; pointToId = Map.add point newId s.pointToId})
+            do! State.put state 
+            return pointId
         }
     
     let segmentToSegmentId (Straight(orig, dest)) = 
@@ -91,7 +95,7 @@ module SolvePolygons =
         if closedPath then Some <| List.map SegmentId tupled else None
 
     // join must work when only some segments form completed polygons and must allow other segments to continue existing
-    let joinToPolygons (segments : SegmentId list) : Polygon list = 
+    let joinToPolygonsAsSegments (segments : SegmentId list) : SegmentId list list = 
 
         let polygonIsSuperset (p1: Set<Set<PointId>>) (p2: Set<Set<PointId>>) = 
             // it's point based, not segment based
@@ -102,7 +106,7 @@ module SolvePolygons =
         // It is 2020 after all...
         let rec go (points: PointId list) (visitedPoints: Set<PointId>) (candidates: Set<Set<PointId>> list) (elected: Set<Set<PointId>> list) = 
             match points with 
-            | [] -> List.map closed elected |> somes |> List.map (fun segments -> {Polygon.segments = segments})
+            | [] -> List.map closed elected |> somes 
             | p :: ps -> 
                 let hasSegmentUsingPoint candidate = Set.exists (fun pointSet -> Set.contains p pointSet) candidate
                 let (segmentsInCandidatesUsingPoint, unelectableCandidates) = List.partition hasSegmentUsingPoint candidates
@@ -124,11 +128,26 @@ module SolvePolygons =
 
         go allPoints Set.empty initialCandidates []
 
-    let orderByCentroids canonState polygons = 
+    let orderByCentroids canonState (polygons: SegmentId list list) = 
         let pointIds polygon = List.collect (fun (SegmentId(p, q)) -> [p; q]) polygon |> List.distinct
-        let centroid points = (List.sumBy (fun p -> p.x) points / (float <| List.length points), List.sumBy (fun p -> p.y) points / (float <| List.length points))
+        let centroid points = {x = List.sumBy (fun p -> p.x) points / (float <| List.length points); y = List.sumBy (fun p -> p.y) points / (float <| List.length points)}
         let centroidOfIds pointIds = List.map (pointIdToPoint canonState) pointIds |> centroid
-        let polyCentroid polygon = polygon.segments |> pointIds |> centroidOfIds
+        let polyCentroid polygon = polygon |> pointIds |> centroidOfIds
 
         let polygonsWithCentroids = List.map (fun p -> (polyCentroid p, p)) polygons 
-        List.sortBy (fun ((x, y), p) -> (y, x)) polygonsWithCentroids
+        let sorted = List.sortBy (fun (centroid, p) -> (centroid.y, centroid.x)) polygonsWithCentroids
+        let indexed = List.mapi (fun i (centroid, polygon) -> pointToPointId centroid |> State.map (fun pointId -> {centroid = pointId; index = [i]; segments = polygon})) sorted
+        State.run (State.sequence indexed) canonState
+
+    let solvePolygons segments = 
+        result {
+            let! (atomized, beforeCentroidCanon) = List.map S.solve.segment segments |> Result.sequence |> Result.map (List.concat >> atomizeSegments)
+            let joinedAsSegments = joinToPolygonsAsSegments atomized 
+            let (afterCentroidCanon, polygons) = orderByCentroids beforeCentroidCanon joinedAsSegments
+            return (afterCentroidCanon, polygons)
+        }
+
+    let solveCell (cell: L.Cell) = 
+        match cell with 
+        | L.Primary segments -> solvePolygons segments
+        | _ -> failwith "not here yet dawg"
