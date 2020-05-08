@@ -58,6 +58,11 @@ module SolveTypes =
         centroid: PointId;
     }
 
+    let mapPolygon f polygon = 
+        {polygon with 
+            centroid = f polygon.centroid;
+            segments = List.map (fun (SegmentId(p, q)) -> SegmentId(f p, f q)) polygon.segments}
+
     type CanonicizerState = {
         epsilon: float;
         idToPoint: Map<PointId, Point>;
@@ -69,6 +74,11 @@ module SolveTypes =
         {canonState with 
             idToPoint = Map.map (fun k v -> f v) canonState.idToPoint; 
             pointToId = Map.mapList (fun k v -> (f k, v)) canonState.pointToId |> Map.ofList}
+
+    let mapPointIds f canonState = 
+        {canonState with 
+            pointToId = Map.map (fun k v -> f v) canonState.pointToId;
+            idToPoint = Map.mapList (fun k v -> (f k, v)) canonState.idToPoint |> Map.ofList}
 
     let emptyCanonicizerState = {
         epsilon = 0.001;

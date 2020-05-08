@@ -89,21 +89,20 @@ module SolvePolygons =
                 then (q, p) :: (asTuples rest <| Set.add q visitedBegin)
                 else (p, q) :: (asTuples rest <| Set.add p visitedBegin)
             | _ -> failwith "should be impossible"
+
         let orderThem tuples = 
             let begToTuple = List.map (fun (x, y) -> (x, (x, y))) tuples |> Map.ofList
             match tuples with
-            | (o, d) :: ts -> 
-                let endAt = (o, d)
+            | t :: ts -> 
                 let unfoldFn (visited, tup) =
                     if Set.contains tup visited
                     then None 
                     else 
                         let (thisO, thisD) = tup
                         Some (tup, (Set.add tup visited, Map.find thisD begToTuple))
-                List.unfold unfoldFn (Set.empty, (o, d))
-
-                // (o, d) :: List.unfold ()
+                List.unfold unfoldFn (Set.empty, t)
             | [] -> []
+
         let tupled = asTuples (Set.toList (Set.map Set.toList pointSet)) Set.empty
         let (beginnings, endings) = List.unzip tupled
         let closedPath = Set.ofList beginnings = Set.ofList endings
@@ -161,6 +160,12 @@ module SolvePolygons =
             let (afterCentroidCanon, polygons) = orderByCentroids beforeCentroidCanon joinedAsSegments
             return (afterCentroidCanon, polygons)
         }
+
+    let copyPolygons (polygons, canonState) = 
+        let offset = canonState.nextId
+        let update (PointId(i)) = PointId(i + offset)
+        let newCanon = {mapPointIds update canonState with nextId = offset * 2 + 2}
+        (mapPolygon update polygons, newCanon)
 
     let solveCell (cell: L.Cell) = 
         match cell with 
