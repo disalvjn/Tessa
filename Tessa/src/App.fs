@@ -74,7 +74,8 @@ module App =
             let border = [a |> L.linkpp b |> L.linksp c |> L.linksp d |> L.linksp a] // |> L.linksp a]
             writeError border
             let cell = L.Primary <| border  @ [L.linkpp a c] @ [L.linkpp b d]
-            let tessellation = L.Tessellation(cell, [])
+            let mirrored = L.Transformed (L.MirrorOver (L.ExtendSegment <| L.linkpp b c), cell)
+            let tessellation = L.Tessellation(mirrored, [])
 
             let targets = {V.boundingHeight = 800.0; V.boundingWidth = 800.0; V.topLeft = (100.0, 100.0); V.xMax = 1000.0; V.yMax = 1000.0;}
             let drawable = V.solveTessellation targets tessellation labels |> fromResult

@@ -51,7 +51,6 @@ module Language =
         | Rotate of direction: RotationDirection * angle: Rotation * point: Point
 
     type CellOp =
-        | Identity
         | MirrorOver of Line
 
     type Cell = 

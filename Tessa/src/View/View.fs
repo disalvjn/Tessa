@@ -44,16 +44,15 @@ module View =
         // todo: if just 0 or 1 points or all colinear ugh
         // we need three non-colinear points for a plane.
         let (minX, maxX, minY, maxY) = bounds allPoints
-        let xScale = float targets.boundingWidth / (maxX - minX)
-        let yScale = float targets.boundingHeight / (maxY - minY)
-        let scale (p: S.Point) = {S.x = xScale * p.x;  S.y = yScale * p.y}
+        let scaleFactor = min (float targets.boundingWidth / (maxX - minX)) (float targets.boundingHeight / (maxY - minY))
+        let scale (p: S.Point) = {S.x = scaleFactor * p.x;  S.y = scaleFactor * p.y}
 
         let newAbsolutes = List.map scale allPoints
         let (newMinX, newMaxX, newMinY, newMaxY) = bounds newAbsolutes
         let xTrans = (fst targets.topLeft) - newMinX
         let yTrans = (snd targets.topLeft) - newMinY
 
-        {xScale = xScale; yScale = yScale; xTrans = xTrans; yTrans = yTrans;
+        {xScale = scaleFactor; yScale = scaleFactor; xTrans = xTrans; yTrans = yTrans;
         xMin = newMinX; xMax = newMaxX; yMin = newMinY; yMax = newMaxY;
         absoluteXMax = targets.xMax; absoluteYMax = targets.yMax;}
 
@@ -87,11 +86,11 @@ module View =
                         // |> List.distinct
                 DrawPolygon(origDests, {color = "#004080"})
             
-            let toDrawPointFromPoly i (p: S.Point) =
-                DrawPoint ((p.x, p.y), {color = "#004080"; label = string i})
+            let toDrawPointFromPoly i (p: S.Polygon) =
+                DrawPoint ((p.centroid.x, p.centroid.y), {color = "#004080"; label = String.concat "." (List.map string p.index)})
             
             return List.map toDrawPoly scaledPolygons
-                @ List.mapi (fun i (polygon: S.Polygon) -> toDrawPointFromPoly i polygon.centroid) scaledPolygons
+                @ List.mapi toDrawPointFromPoly scaledPolygons
                 @ List.map (fun (label, point: S.Point) -> DrawPoint((point.x, point.y), {color = "#004080"; label=label})) scaledLabeledPoints
         }
 

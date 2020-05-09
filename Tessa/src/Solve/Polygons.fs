@@ -152,9 +152,31 @@ module SolvePolygons =
             return polygons
         }
 
+    let mirrorPointOverLine l p = 
+        match l with 
+        | Vertical(x) -> {x = (x - p.x  + x); y = p.y}
+        // https://stackoverflow.com/a/3307181/10558918
+        | Sloped(point, m) -> 
+            let c = p.y - (m * p.x)
+            let d = (p.x + (p.y - c)*m)/ (1.0 + m*m)
+            {x = 2.0*d - p.x ; y = 2.0*d*m - p.y + 2.0*c}
+
+
     // Polygon * CanonState should be its own record with fns defined on it like mapPoint and mapPointId.
     // MapPoint automatically copies.
-    let solveCell (cell: L.Cell) = 
+    let rec solveCell (cell: L.Cell) = 
         match cell with 
         | L.Primary segments -> solvePolygons segments
+        | L.Transformed(op, cell) -> 
+            result {
+                let! solved = solveCell cell 
+                return! 
+                    match op with 
+                    | L.MirrorOver(unsolvedLine)->
+                        result {
+                            let! line = S.solve.line unsolvedLine
+                            let mappedOver = mapPointsPolygons (mirrorPointOverLine line) solved
+                            return indexAppend [0] solved @ indexAppend [1] mappedOver
+                        }
+            }
         | _ -> failwith "not here yet dawg"

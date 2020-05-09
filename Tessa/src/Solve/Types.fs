@@ -60,3 +60,5 @@ module SolveTypes =
     let mapPointsPolygons f polygons = List.map (mapPointsPolygon f) polygons
 
     let allPoints polygons = List.collect (fun p -> List.collect (fun (Straight(p, q)) -> [p; q;]) p.segments) polygons
+
+    let indexAppend ind polygons = List.map (fun p -> {p with index = ind @ p.index;}) polygons
