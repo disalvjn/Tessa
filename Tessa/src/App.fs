@@ -70,13 +70,14 @@ module App =
 
             // // printf "%A" result
             let (a, b, c, d) = (L.Absolute(0.0, 0.0), L.Absolute(1.0, 0.0), L.Absolute(1.0, 1.0), L.Absolute (0.0, 1.0))
+            let labels = Map.ofList [("a", a); ("b", b); ("c", c); ("d", d)]
             let border = [a |> L.linkpp b |> L.linksp c |> L.linksp d |> L.linksp a] // |> L.linksp a]
             writeError border
             let cell = L.Primary <| border  @ [L.linkpp a c] @ [L.linkpp b d]
             let tessellation = L.Tessellation(cell, [])
 
             let targets = {V.boundingHeight = 800.0; V.boundingWidth = 800.0; V.topLeft = (100.0, 100.0); V.xMax = 1000.0; V.yMax = 1000.0;}
-            let drawable = V.solveTessellation targets tessellation Map.empty |> fromResult
+            let drawable = V.solveTessellation targets tessellation labels |> fromResult
 
             writeError drawable
 

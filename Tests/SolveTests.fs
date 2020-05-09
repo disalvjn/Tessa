@@ -203,16 +203,15 @@ module SolveTests =
         Assert.Equal(Some [(b, d); (d, c); (c, b)], isClosed [(b, c); (c, d); (d, b)])
         Assert.Equal(Some [(a,b);(b,c);(c,d);(d,a)], isClosed [(a,b);(a,d);(b,c);(d,c)])
 
-    let pointMap = [
-        (1, {x = 0.0; y = 0.0;});
-        (2, {x = 1.0; y = 0.0;});
-        (3, {x = 0.5; y = 1.0;});
-        (4, {x = 0.5; y = 0.0;})
-    ]
+    let intsToSegmentsDividedTriangle points  =
+        let pointMap = [
+            (1, {x = 0.0; y = 0.0;});
+            (2, {x = 1.0; y = 0.0;});
+            (3, {x = 0.5; y = 1.0;});
+            (4, {x = 0.5; y = 0.0;})
+        ]
 
-    let intsToSegments points  =
         let numToPoint = Map.ofList pointMap
-        let pointToNum = Map.ofList <| List.map (fun (x, y) -> (y, x)) pointMap
 
         Seq.zip points (List.tail points)
         |> Seq.fold (fun segList (p1, p2) -> Straight(Map.find p1 numToPoint, Map.find p2 numToPoint) :: segList) []
@@ -226,34 +225,64 @@ module SolveTests =
 
     [<Fact>]
     let ``Join To Polygons Simple Triangle`` () = 
-        let atoms = intsToSegments [1;2;3;1]
+        let atoms = intsToSegmentsDividedTriangle [1;2;3;1]
         let joined = Set.toList <| joinToPolygons atoms 
         // todo: make this test more worthwhile
-        Assert.Equal(List.length joined, 1)
-        Assert.Equal(List.length <| List.head joined, 3)
+        Assert.Equal(1, List.length joined)
+        Assert.Equal(3, List.length <| List.head joined)
         // let expected = Set.ofList [intsToSegments [1;2;3;1]]
         // Assert.Equal<Set<Segment list>>(expected, joined)
 
     [<Fact>]
     let ``Join To Polygons Simple Triangle With Divider`` () = 
-        let atoms = intsToSegments [1;2;4;1] @  intsToSegments [2;3;4]
+        let atoms = intsToSegmentsDividedTriangle [1;2;4;1] @  intsToSegmentsDividedTriangle [2;3;4]
         let joined = Set.toList <| joinToPolygons atoms
         // todo: make this test more worthwhile
-        Assert.Equal(List.length joined, 2)
-        Assert.Equal(List.length <| List.head joined, 3)
-        Assert.Equal(List.length <| List.last joined, 3)
+        Assert.Equal(2, List.length joined)
+        Assert.Equal(3, List.length <| List.head joined)
+        Assert.Equal(3, List.length <| List.last joined)
         // let expected = Set.ofList [intsToSegments [1;2;4;1]; intsToSegments [2;3;4;2]]
         // Assert.Equal<Set<Segment list>>(expected, joined)
 
     [<Fact>]
     let ``Join To Polygons Simple Non-Closed Shape`` () = 
-        let atoms = intsToSegments [1;2;4;1] @  intsToSegments [2;3]
+        let atoms = intsToSegmentsDividedTriangle [1;2;4;1] @  intsToSegmentsDividedTriangle [2;3]
         let joined = Set.toList <| joinToPolygons atoms 
         // todo: make this test more worthwhile
-        Assert.Equal(List.length joined, 1)
-        Assert.Equal(List.length <| List.head joined, 3)
+        Assert.Equal(1, List.length joined)
+        Assert.Equal(3, List.length <| List.head joined)
         // let expected = Set.ofList [intsToSegments [1;2;4;1];]
         // Assert.Equal<Set<Segment list>>(expected, joined)
+
+    let intsToSegmentsSquareCross points  =
+        let pointMap = [
+            (1, {x = 0.0; y = 0.0;});
+            (2, {x = 1.0; y = 0.0;});
+            (3, {x = 1.0; y = 1.0;});
+            (4, {x = 0.0; y = 1.0;});
+            (5, {x = 0.5; y = 0.5});
+        ]
+
+        let numToPoint = Map.ofList pointMap
+
+        Seq.zip points (List.tail points)
+        |> Seq.fold (fun segList (p1, p2) -> Straight(Map.find p1 numToPoint, Map.find p2 numToPoint) :: segList) []
+        |> Seq.toList
+        |> List.rev
+    
+    [<Fact>]
+    let ``Join To Polygons Square With Cross`` () =
+        let atoms = 
+            [
+            [1;5;4;1];
+            [1;5;2;1];
+            [2;5;3;2];
+            [3;5;4;3];
+            ] |> List.collect intsToSegmentsSquareCross
+            
+        let joined = Set.toList <| joinToPolygons atoms
+        Assert.Equal(4, List.length joined)
+
 
 
 

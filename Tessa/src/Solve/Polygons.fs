@@ -63,15 +63,53 @@ module SolvePolygons =
         let closedPath = Set.ofList beginnings = Set.ofList endings
         if closedPath then Some <| List.map Straight (orderThem tupled) else None
 
+    // todo: this is not true
+    let polygonIsSuperset (p1: Set<Set<Point>>) (p2: Set<Set<Point>>) = 
+        // it's point based, not segment based
+        let allPointsP1 = p1 |> Set.toList |> List.collect Set.toList |> Set.ofList
+        let allPointsP2 = p2 |> Set.toList |> List.collect Set.toList |> Set.ofList
+        Set.isSuperset allPointsP1 allPointsP2
+
+    let polygonIsSuperset2 (p1: Set<Set<Point>>) (p2: Set<Set<Point>>) = 
+        // it's point based, not segment based
+        let allPointsP1 = p1 |> Set.toList |> List.collect Set.toList |> Set.ofList
+        let allPointsP2 = p2 |> Set.toList |> List.collect Set.toList |> Set.ofList
+
+        let p1Lines = 
+            Set.toList p1 
+            |> List.map (fun set ->
+                match Set.toList set with 
+                | [p; q;] -> S.segmentToLine <| Straight(p, q)
+                | _ -> failwith "impossible")
+
+        let withLineStartingFromP1PointP2LiesInside p1Point p2Point = 
+            let thisLine = S.segmentToLine <| Straight(p1Point, p2Point)
+            let intersections = 
+                p1Lines
+                |> List.map (fun line -> S.solvePointLineIntersect line thisLine) 
+                |> okays
+                |> List.map (S.distance p1Point)
+                |> List.filter (fun x -> x > 0.00001)
+            if List.isEmpty intersections
+            then false 
+            else
+                let closest = List.min intersections
+                closest > S.distance p1Point p2Point // then failAndPrint(closest, S.distance p1Point p2Point, p1Point, p2Point) else closest < S.distance p1Point p2Point
+
+        let pointTuckedAwayCozilyInsideP1 p2 =
+            if Set.contains p2 allPointsP1
+            then false
+            else List.exists (fun p1 -> withLineStartingFromP1PointP2LiesInside p1 p2) <| Set.toList allPointsP1
+
+        let result = Set.isSuperset allPointsP1 allPointsP2 || List.exists pointTuckedAwayCozilyInsideP1 (Set.toList allPointsP2)
+        result
+        // if result 
+        // then 
+        //     failAndPrint (result, allPointsP1, allPointsP2) 
+        // else result
+
     // join must work when only some segments form completed polygons and must allow other segments to continue existing
     let joinToPolygonsAsSegments (segments : Segment list) : Segment list list = 
-
-        // todo: this is not true
-        let polygonIsSuperset (p1: Set<Set<Point>>) (p2: Set<Set<Point>>) = 
-            // it's point based, not segment based
-            let allPointsP1 = p1 |> Set.toList |> List.collect Set.toList |> Set.ofList
-            let allPointsP2 = p2 |> Set.toList |> List.collect Set.toList |> Set.ofList
-            Set.isSuperset allPointsP1 allPointsP2
 
         // It is 2020 after all...
         let rec go (points: Point list) (visitedPoints: Set<Point>) (candidates: Set<Set<Point>> list) (elected: Set<Set<Point>> list) = 
@@ -86,10 +124,10 @@ module SolvePolygons =
                     |> List.append unelectableCandidates
                     |> List.distinct
 
-                let augmentedWithoutSupersets = List.filter (fun aug -> not <| List.exists (fun poly -> polygonIsSuperset aug poly) elected) augmented
+                let augmentedWithoutSupersets = List.filter (fun aug -> not <| List.exists (fun poly -> polygonIsSuperset2 aug poly) elected) augmented
 
                 let (newPolygons, newCandidates) = List.partition (Option.isSome << closed) augmentedWithoutSupersets
-                let prunedExistingPolygons = List.filter (fun poly -> not <| List.exists (fun newPoly -> polygonIsSuperset poly newPoly) newPolygons) elected
+                let prunedExistingPolygons = List.filter (fun poly -> not <| List.exists (fun newPoly -> polygonIsSuperset2 poly newPoly) newPolygons) elected
 
                 go ps (Set.add p visitedPoints) newCandidates (newPolygons @ prunedExistingPolygons)
 

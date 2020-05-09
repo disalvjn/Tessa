@@ -104,15 +104,17 @@ module SolveShapesInternal =
                         | Some m -> Sloped(point, -1.0 / m)
         } |> Result.mapError (fun e -> LinePerpendicularToSegmentChain ("Can't find line perpendicular to empty segment", (Some e)))
 
+    let segmentToLine segment = 
+        match segment with 
+        | Straight(orig, dest) -> 
+            match slope orig dest with
+            | None -> Vertical orig.x
+            | Some m -> Sloped (orig, m)
+
     let solveLineExtendSegment segmentChain = 
-        match List.length segmentChain with
-        | 0 -> Error <| ExtendSegmentToLine("No segments in chain; unable to extend to line", segmentChain, None)
-        | 1 ->
-            match List.head segmentChain with 
-            | Straight(orig, dest) -> 
-                match slope orig dest with
-                | None -> Ok <| Vertical orig.x
-                | Some m -> Ok <| Sloped (orig, m)
+        match segmentChain with
+        | [] -> Error <| ExtendSegmentToLine("No segments in chain; unable to extend to line", segmentChain, None)
+        | [segment] -> Ok <| segmentToLine segment
         | _ -> Error <| ExtendSegmentToLine("more than 1 segment in chain; unable to extend to line", segmentChain, None)
 
     let solveLineVerticalThroughX location segmentChain =
@@ -171,8 +173,8 @@ module SolveShapesInternal =
             | Straight(orig, dest) -> pointBoundedBy point orig dest
 
         let segmentsIntersect s1 s2 =  Result.fromOk None <| result {
-            let! extend1 = solveLineExtendSegment [s1]
-            let! extend2 = solveLineExtendSegment [s2] 
+            let extend1 = segmentToLine s1
+            let extend2 = segmentToLine s2 
             let! intersect = solvePointLineIntersect extend1 extend2
             return 
                 if (pointWithinSegmentBounds intersect s1) && (pointWithinSegmentBounds intersect s2) 
