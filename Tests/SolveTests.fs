@@ -279,8 +279,9 @@ module SolveTests =
             [2;5;3;2];
             [3;5;4;3];
             ] |> List.collect intsToSegmentsSquareCross
+
+        let joined = [[1;2;3;4;1]; [1;3;]; [2;4;]] |> List.collect intsToSegmentsSquareCross |> atomizeSegments |> joinToPolygons |> Set.toList
             
-        let joined = Set.toList <| joinToPolygons atoms
         Assert.Equal(4, List.length joined)
 
 

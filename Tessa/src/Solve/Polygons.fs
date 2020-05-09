@@ -94,7 +94,8 @@ module SolvePolygons =
             then false 
             else
                 let closest = List.min intersections
-                closest > S.distance p1Point p2Point // then failAndPrint(closest, S.distance p1Point p2Point, p1Point, p2Point) else closest < S.distance p1Point p2Point
+                // This could cause a bug -- what if the points are in opposite directions?
+                closest > S.distance p1Point p2Point 
 
         let pointTuckedAwayCozilyInsideP1 p2 =
             if Set.contains p2 allPointsP1
@@ -103,10 +104,6 @@ module SolvePolygons =
 
         let result = Set.isSuperset allPointsP1 allPointsP2 || List.exists pointTuckedAwayCozilyInsideP1 (Set.toList allPointsP2)
         result
-        // if result 
-        // then 
-        //     failAndPrint (result, allPointsP1, allPointsP2) 
-        // else result
 
     // join must work when only some segments form completed polygons and must allow other segments to continue existing
     let joinToPolygonsAsSegments (segments : Segment list) : Segment list list = 
@@ -114,7 +111,7 @@ module SolvePolygons =
         // It is 2020 after all...
         let rec go (points: Point list) (visitedPoints: Set<Point>) (candidates: Set<Set<Point>> list) (elected: Set<Set<Point>> list) = 
             match points with 
-            | [] -> List.map closed elected |> somes 
+            | [] -> elected |> List.filter (fun e -> not <| List.exists (fun e2 -> e <> e2 && polygonIsSuperset2 e e2) elected) |> List.map closed |> somes 
             | p :: ps -> 
                 let hasSegmentUsingPoint candidate = Set.exists (fun pointSet -> Set.contains p pointSet) candidate
                 let (segmentsInCandidatesUsingPoint, unelectableCandidates) = List.partition hasSegmentUsingPoint candidates
