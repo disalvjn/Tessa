@@ -63,6 +63,7 @@ module View =
         match (lindex, pindex) with
         | ([], []) -> true
         | (L.Ind n :: ls, m :: ps) -> n = m && indexAppliesTo ls ps
+        | (L.Any :: ls, m :: ps) -> indexAppliesTo ls ps
         | _ -> false
 
     let solveTessellation targets (L.Tessellation(cell, effects)) (labeledPoints: Map<string, L.Point>) =
@@ -72,6 +73,17 @@ module View =
             let transform = pointTranslation targets <| (List.map (fun (x, y) -> y) solvedLabeledPoints) @ S.allPoints rawPolygons
             let scaledPolygons = S.mapPointsPolygons (applyPointTransform transform) rawPolygons
             let scaledLabeledPoints = List.map (fun (l, p) -> (l, applyPointTransform transform p)) solvedLabeledPoints
+
+            let asColor = function 
+                | L.Color c -> Some c 
+                | _ -> None
+
+            let color (polygon: S.Polygon) = 
+                effects
+                |> List.filter (fun (index, e) -> indexAppliesTo index polygon.index) 
+                |> List.map (fun (_, e) -> asColor e)
+                |> somes
+                |> List.tryHead
             // let scaledLabelPoints = 
 
             let toTup (p: S.Point) = (p.x, p.y)
@@ -84,7 +96,7 @@ module View =
                         :: (restSegments |> List.map (fun (S.Straight(_, q)) ->  toTup q))
                     | _ -> []
                         // |> List.distinct
-                DrawPolygon(origDests, {color = "#004080"})
+                DrawPolygon(origDests, {color = Option.cata id "#ffffff" <| color polygon})
             
             let toDrawPointFromPoly i (p: S.Polygon) =
                 DrawPoint ((p.centroid.x, p.centroid.y), {color = "#004080"; label = String.concat "." (List.map string p.index)})

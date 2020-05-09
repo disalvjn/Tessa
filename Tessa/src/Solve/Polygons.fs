@@ -157,7 +157,7 @@ module SolvePolygons =
         | Vertical(x) -> {x = (x - p.x  + x); y = p.y}
         // https://stackoverflow.com/a/3307181/10558918
         | Sloped(point, m) -> 
-            let c = p.y - (m * p.x)
+            let c = point.y - m * point.x
             let d = (p.x + (p.y - c)*m)/ (1.0 + m*m)
             {x = 2.0*d - p.x ; y = 2.0*d*m - p.y + 2.0*c}
 
@@ -177,6 +177,39 @@ module SolvePolygons =
                             let! line = S.solve.line unsolvedLine
                             let mappedOver = mapPointsPolygons (mirrorPointOverLine line) solved
                             return indexAppend [0] solved @ indexAppend [1] mappedOver
+                        }
+                    | L.Repeat(span, rotation, times) ->
+                        result {
+                            let! (Straight(orig, dest)) = S.solve.segment span |> Result.map List.head // todo: make that safer
+                            let dist = S.distance orig dest
+                            let midpoint = S.pointOnStraightSegment orig dest 0.5
+                            let movePoint mag theta p = {x = p.x + cos(theta) * mag; y = p.y + sin(theta) * mag;} 
+                            let thetas = 
+                                (match rotation with
+                                | L.C2 -> [0; 180;]
+                                | L.C3 -> [0; 120; 240;]
+                                | L.C4 -> [0; 90; 180; 270;]
+                                | L.C6 -> [0; 60; 120; 180; 240; 300;])
+                                |> List.map (fun x -> (float x) * Math.PI / 180.0) 
+
+                            let rec allMidpoints times midPoints =
+                                if times = 0
+                                then midPoints
+                                else 
+                                    let genNext mps = Set.unionMany [for mp in mps do for theta in thetas -> Set.ofList [mp; movePoint dist theta mp;]]
+                                    allMidpoints (times - 1) (midPoints |> genNext |> genNext)
+
+                            let midPoints = 
+                                allMidpoints times (Set.ofList [midpoint])
+                                |> Set.toList
+                                |> List.filter ((<>) midpoint) 
+                                |> List.filter (fun p -> S.distance p midpoint < dist * (float times + 1.0))
+
+                            let movePolygonsTo nextMidpoint = 
+                                let theta = Math.Atan2(nextMidpoint.y - midpoint.y, nextMidpoint.x - midpoint.x)
+                                mapPointsPolygons (movePoint (S.distance nextMidpoint midpoint) theta) solved
+
+                            return solved @ List.collect movePolygonsTo midPoints
                         }
             }
         | _ -> failwith "not here yet dawg"

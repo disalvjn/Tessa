@@ -52,6 +52,7 @@ module Language =
 
     type CellOp =
         | MirrorOver of Line
+        | Repeat of span: Segment * rotation: Rotation * int 
 
     type Cell = 
         | Primary of Segment list 

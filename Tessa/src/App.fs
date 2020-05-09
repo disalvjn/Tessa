@@ -50,7 +50,7 @@ module App =
             ctx.fillStyle <- !^ options.color
             ctx.strokeStyle <- !^ options.color
             ctx.stroke()
-            // ctx.fill()
+            ctx.fill()
 
     let fromResult = function 
         | Ok o -> o 
@@ -70,17 +70,26 @@ module App =
 
             // // printf "%A" result
             let (a, b, c, d) = (L.Absolute(0.0, 0.0), L.Absolute(1.0, 0.0), L.Absolute(1.0, 1.0), L.Absolute (0.0, 1.0))
-            let labels = Map.ofList [("a", a); ("b", b); ("c", c); ("d", d)]
+            let c2 = L.(@) (L.linkpp c d) 2.0
+            let labels = Map.ofList [("a", a); ("b", b); ("c", c); ("d", d); ("c2", c2)]
             let border = [a |> L.linkpp b |> L.linksp c |> L.linksp d |> L.linksp a] // |> L.linksp a]
-            writeError border
+            let halfwayAB = L.(@) (L.linkpp a b) 0.5
+            let halfwayCD = L.(@) (L.linkpp c d) 0.5
+            // writeError border
             let cell = L.Primary <| border  @ [L.linkpp a c] @ [L.linkpp b d]
-            let mirrored = L.Transformed (L.MirrorOver (L.ExtendSegment <| L.linkpp b c), cell)
-            let tessellation = L.Tessellation(mirrored, [])
+            let mirrored1 = L.Transformed (L.MirrorOver (L.ExtendSegment <| L.linkpp b c), cell)
+            let mirrored2 = L.Transformed (L.MirrorOver (L.ExtendSegment <| L.linkpp d c), mirrored1)
+            let repeated = L.Transformed (L.Repeat(L.linkpp d c2, L.C4, 3), mirrored2)
+            let tessellation = L.Tessellation(repeated, [
+                ([L.Any; L.Any; L.Ind 0], L.Color("#ccffdd"));
+                ([L.Any; L.Any; L.Ind 1], L.Color ("#4dff88"));
+                ([L.Any; L.Any; L.Ind 2], L.Color ("#009933"));
+                ([L.Any; L.Any; L.Ind 3], L.Color ("#003311"))])
 
             let targets = {V.boundingHeight = 800.0; V.boundingWidth = 800.0; V.topLeft = (100.0, 100.0); V.xMax = 1000.0; V.yMax = 1000.0;}
             let drawable = V.solveTessellation targets tessellation labels |> fromResult
 
-            writeError drawable
+            // writeError drawable
 
             // let (drawable, errs) = V.drawableFromEvalResult result targets
             // List.iter writeError errs
@@ -88,7 +97,7 @@ module App =
             // printf "%A" errs
             ctx.clearRect(0.0, 0.0, 1000.0, 1000.0)
 
-            List.iter (draw ctx {drawPoints = true}) drawable
+            List.iter (draw ctx {drawPoints = false}) drawable
         with 
             | e -> writeError e
 
