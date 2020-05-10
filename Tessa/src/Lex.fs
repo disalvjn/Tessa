@@ -25,6 +25,7 @@ module Lex =
         | Snip // *-*
         | Draw // !
         | Lambda
+        | Is
 
     type Token = 
         | StackOp // :
@@ -47,7 +48,6 @@ module Lex =
         ("\+", always <| PrimitiveProc LinkPoints);
         ("\|\-", always <| PrimitiveProc Perpendicular);
         ("->", always <| PrimitiveProc Lambda);
-        ("#", always <| PrimitiveProc Snip);
         ("\*", always <| PrimitiveProc Intersect);
         ("\@", always <| PrimitiveProc At);
         ("%", always <| PrimitiveProc ApplyOp);
@@ -56,8 +56,10 @@ module Lex =
         ("'", always QuotePrimitive);
         ("\.", always <| PrimitiveProc RecordAccess);
         ("\!", always <| PrimitiveProc Draw);
+        ("-/-", always <| PrimitiveProc Snip);
         ("\s", always WhiteSpace);
         ("--.*\n", always WhiteSpace);
+        ("is", always <| PrimitiveProc Is);
         ("[a-zA-Z]+[a-zA-Z\-\d]*", Identifier);
         ("\-*[\d]+/*[\d]*", fun s -> s.Split("/") |> (fun arr -> Fraction (int arr.[0], if arr.Length = 1 then 1 else int arr.[1])));]
 

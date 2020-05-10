@@ -178,6 +178,8 @@ module SolvePolygons =
                             let mappedOver = mapPointsPolygons (mirrorPointOverLine line) solved
                             return indexAppend [0] solved @ indexAppend [1] mappedOver
                         }
+                    // Todo: Want different ones for C3, C4, C6
+                    // This visit strategy works for C6 (inward -> outward) but not for c4
                     | L.Repeat(span, rotation, times) ->
                         result {
                             let! (Straight(orig, dest)) = S.solve.segment span |> Result.map List.head // todo: make that safer
@@ -203,6 +205,7 @@ module SolvePolygons =
                                 allMidpoints times (Set.ofList [midpoint])
                                 |> Set.toList
                                 |> List.filter ((<>) midpoint) 
+                                // this is hack trying to get C6 method to work with C4
                                 |> List.filter (fun p -> S.distance p midpoint < dist * (float times + 1.0))
 
                             let movePolygonsTo nextMidpoint = 

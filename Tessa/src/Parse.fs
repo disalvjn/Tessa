@@ -19,6 +19,7 @@ module Parse =
         | Snip
         | Draw
         | Lambda
+        | Is
 
     type Word = 
         | Identifier of string
@@ -101,4 +102,5 @@ module Parse =
         | Lex.RecordAccess -> RecordAccess
         | Lex.Draw -> Draw
         | Lex.Lambda -> Lambda
+        | Lex.Is -> Is
     

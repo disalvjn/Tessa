@@ -69,6 +69,7 @@ module App =
             // Option.iter writeError result.error
 
             // // printf "%A" result
+
             let (a, b, c, d) = (L.Absolute(0.0, 0.0), L.Absolute(1.0, 0.0), L.Absolute(1.0, 1.0), L.Absolute (0.0, 1.0))
             let c2 = L.(@) (L.linkpp c d) 2.0
             let labels = Map.ofList [("a", a); ("b", b); ("c", c); ("d", d); ("c2", c2)]

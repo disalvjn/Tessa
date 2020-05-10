@@ -30,6 +30,7 @@ module EvalTypes =
         | Intersect 
         | Draw
         | Lambda
+        | Is
 
     // todo: Need to pipe Lex pos into Parse so I can add positions here
     type EvalError =

@@ -27,6 +27,7 @@ module PrimitiveProcedures =
         | P.Snip -> Snip
         | P.RecordAccess -> RecordAccess
         | P.Draw -> Draw
+        | P.Is -> Is
         // | P.Lambda -> Lambda
 
     let addNumber arguments env =
@@ -217,4 +218,5 @@ module PrimitiveProcedures =
         | Intersect -> intersect
         | Draw -> draw
         | IsoscelesRight -> makeIsoscelesRight
+        | Is -> (fun arguments env -> assign (List.rev arguments) env)
 
