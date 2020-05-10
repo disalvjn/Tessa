@@ -34,10 +34,13 @@ module Lex =
         | EndNestedExpression // )
         | WhiteSpace // space, newline, comma?
         | Identifier of string // abc
+        | DynamicIdentifier of string
         | Fraction of numer: int * denom: int // 11/4
         | PrimitiveProc of PrimitiveProcToken
         | QuotePrimitive // ' -- allows us pass + etc. into function as an argument without trigger stack
         // Primitive Procedures
+
+    let identifierRegExp  = "[a-zA-Z]+[a-zA-Z\-\d]*"
 
     let matchesToTokens = 
         [(":", always StackOp);
@@ -60,7 +63,8 @@ module Lex =
         ("\s", always WhiteSpace);
         ("--.*\n", always WhiteSpace);
         ("is", always <| PrimitiveProc Is);
-        ("[a-zA-Z]+[a-zA-Z\-\d]*", Identifier);
+        ("&" + identifierRegExp, DynamicIdentifier);
+        (identifierRegExp, Identifier);
         ("\-*[\d]+/*[\d]*", fun s -> s.Split("/") |> (fun arr -> Fraction (int arr.[0], if arr.Length = 1 then 1 else int arr.[1])));]
 
     let advanceLex row col str = 

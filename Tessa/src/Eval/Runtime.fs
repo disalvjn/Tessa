@@ -19,27 +19,6 @@ module Runtime =
 
     let mergeDraws = Map.unionWith (fun x y -> List.distinct <| x @ y)
 
-    let solveGeoSegment = function 
-        | LSegment seg -> Result.toOption <| S.solve.segment seg
-        | _ -> None
-
-    // type Runtime = {
-    //     drawMap: DrawMap;
-    //     environment: Environment;
-    //     geoCanon: S.CanonicizerState;
-    //     
-    //     polygons: S.Polygon list;
-    // }
-
-    let polygonName (PolygonName(CellName(cellName), num)) index = cellName + (string num)
-
-    // let geoExpsToPolygons cellName (geoExps: list<GeoExp>) =
-    //     // how does this work with hide and show and overlays?
-    //     let segments = List.map solveGeoSegment geoExps |> somes
-    //     let (segmentIds, canonState) = P.atomizeSegments <| List.concat segments 
-    //     let polygons = P.joinToPolygons segmentIds 
-    //     let orderedByCentroids = P.orderByCentroids canonState polygons
-    //     List.mapi (fun i ((x, y), poly) -> (L.Absolute(x, y), PolygonName(cellName, i), PolygonIndex([]))) orderedByCentroids
 
     let handleMessage (message: EvaluatorMessage) (runtime: Runtime) : Runtime = 
         match message with

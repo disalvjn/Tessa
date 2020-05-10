@@ -17,7 +17,6 @@
     <Compile Include="src/View/ViewTypes.fs" />
     <Compile Include="src/View/View.fs" />
     <Compile Include="src/App.fs" />
-    <!-- <Compile Include="src/Program.fs" /> -->
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fable.Browser.Dom" Version="1.1.0" />

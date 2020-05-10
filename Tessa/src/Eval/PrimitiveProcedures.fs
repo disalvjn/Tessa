@@ -28,7 +28,7 @@ module PrimitiveProcedures =
         | P.RecordAccess -> RecordAccess
         | P.Draw -> Draw
         | P.Is -> Is
-        // | P.Lambda -> Lambda
+        | P.Lambda -> MakeLambda
 
     let addNumber arguments env =
         let numbers = List.map toNumber arguments
@@ -90,8 +90,8 @@ module PrimitiveProcedures =
 
     let rec linkPoints arguments env = 
         match arguments with 
-        | [GeoExp(Polygon(centroid, _, _)); x] -> linkPoints [GeoExp(LPoint centroid); x] env
-        | [x; GeoExp(Polygon(centroid, _, _))] -> linkPoints [x;GeoExp(LPoint centroid)] env
+        // | [GeoExp(Polygon(centroid, _, _)); x] -> linkPoints [GeoExp(LPoint centroid); x] env
+        // | [x; GeoExp(Polygon(centroid, _, _))] -> linkPoints [x;GeoExp(LPoint centroid)] env
         | [GeoExp(LPoint p); GeoExp(LPoint q)] as a -> Ok (L.Link (p, q) |> LSegment |> GeoExp, None)
         | [GeoExp(LPoint p); GeoExp(LSegment s)] -> Ok (L.ReverseChain(p, s) |> LSegment |> GeoExp, None)
         | [GeoExp(LSegment s); GeoExp(LPoint p)] -> Ok (L.Chain(s, p) |> LSegment |> GeoExp, None) 
@@ -201,7 +201,7 @@ module PrimitiveProcedures =
         let x = (sqrt 2.0) / 2.0
         toPointArray [L.Absolute(0.0, 0.0); L.Absolute (0.0, x); L.Absolute (x, x);]
 
-    let lookupPrimitiveProcedure (p: PrimitiveProcedure) : PrimitiveProcedureFn = 
+    let lookupPrimitiveProcedure (p: PrimitiveProcedure) eval : PrimitiveProcedureFn = 
         match p with
         | AddNumber -> addNumber
         | Assign -> assign
@@ -219,4 +219,4 @@ module PrimitiveProcedures =
         | Draw -> draw
         | IsoscelesRight -> makeIsoscelesRight
         | Is -> (fun arguments env -> assign (List.rev arguments) env)
-
+        | Eval -> eval

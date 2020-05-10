@@ -178,4 +178,14 @@ module EvalTests =
                 L.Link(L.Absolute(0.0, 1.0), L.Absolute(1.0, 1.0)) |> E.LSegment;] Map.empty
 
         Assert.Equal<E.DrawMap>(expected, er.runtime.drawMap)
+
+
+    [<Fact>]
+    let ``Test Eval`` () =
+        let program = 
+            """
+            1 :plus 2 is 'x;
+            :eval '(x :plus 5);
+            """
+        Assert.Equal(8.0, fromSomeNumber <| eval program)
         

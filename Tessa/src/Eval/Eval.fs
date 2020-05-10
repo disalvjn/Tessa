@@ -38,10 +38,12 @@ module Eval =
         |> Map.add "square" (PrimitiveProcedure Square)
         |> Map.add "isosceles-right" (PrimitiveProcedure IsoscelesRight)
         |> Map.add "c4-clockwise" (PrimitiveProcedure C4Clockwise)
+        |> Map.add "eval" (PrimitiveProcedure Eval)
 
     let emptyRuntime = {
         environment = startingEnvironment;
         drawMap = Map.empty;
+        dynamicEnvironment = Map.empty;
     }
 
     let emptyStackExecutionContext = {
@@ -82,29 +84,6 @@ module Eval =
         }
 
     let acceptNextOp context = updateTop (fun t -> {t with currentOp = EmptyAcceptNext;}) context 
-
-    let reduceStackHelper context = 
-        match context.currentOp with 
-            | Empty -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.runtime)
-
-            | EmptyAcceptNext -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.runtime) 
-
-            | Op o -> 
-                match o with 
-                | Primitive p -> result {
-                    let fn = lookupPrimitiveProcedure p
-                    let! (applied, message) = fn (List.rev context.arguments) context.runtime.environment
-                    let newRuntime = 
-                        match message with
-                        | Some m -> handleMessage m context.runtime
-                        | None -> context.runtime
-                    return (Some applied, [applied], Empty, newRuntime)
-                }
-
-    let reduceStack context = result {
-        let! (ret, args, op, runtime) = reduceStackHelper context.currentContext
-        return updateTop (fun t -> {t with ret = ret; arguments = args; currentOp = op; runtime = runtime}) context
-    }
 
     let returnToLastContinuation ret initContext topRuntime =
             // return to the last continuation
@@ -153,33 +132,29 @@ module Eval =
         let current = context.currentContext 
         {context with currentContext = frame; continuations = current :: context.continuations;}
 
-    let evalStackCommand initContext stackCommand = 
-        match stackCommand with 
-        | BeginNewStack -> 
-            newTopFrame initContext |> pushNewTopFrame initContext |> Ok
+    let reduceStackHelper eval context = 
+        match context.currentOp with 
+            | Empty -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.runtime)
 
-        | Expression word -> 
-            evalWord initContext word |> Result.bind (flip acceptExpression initContext)
+            | EmptyAcceptNext -> Ok (List.tryHead context.arguments, context.arguments, context.currentOp, context.runtime) 
 
-        | EndStack -> 
-            reduceStack initContext |> Result.map (updateTop (fun t -> {t with arguments= []; currentOp = Empty;}))
-
-        | ReduceAndPushOp(maybePrimitive) -> 
-            // todo: reduce is possible
-            match maybePrimitive with
-            | Some primitive -> 
-                result {
-                    let! acceptingContext = initContext |> reduceStack |> Result.map acceptNextOp 
-                    let evalPrimitive = parsePrimitiveToEvalPrimitive primitive |> PrimitiveProcedure
-                    return! acceptExpression evalPrimitive acceptingContext
+            | Op o -> 
+                match o with 
+                | Primitive p -> result {
+                    let fn = lookupPrimitiveProcedure p eval
+                    let! (applied, message) = fn (List.rev context.arguments) context.runtime.environment
+                    let newRuntime = 
+                        match message with
+                        | Some m -> handleMessage m context.runtime
+                        | None -> context.runtime
+                    return (Some applied, [applied], Empty, newRuntime)
                 }
-            | None -> initContext |> reduceStack |> Result.map acceptNextOp // liftToExecutionContext (reduceStack >=> acceptNextOp) initContext
 
-        | ReturnNewStack -> 
-            result {
-                let! (ret, _, _, topRuntime) = reduceStackHelper initContext.currentContext
-                return! returnToLastContinuation ret initContext topRuntime
-            }
+    let reduceStack eval context = 
+        result {
+            let! (ret, args, op, runtime) = reduceStackHelper eval context.currentContext
+            return updateTop (fun t -> {t with ret = ret; arguments = args; currentOp = op; runtime = runtime}) context
+        }
 
     let firstPriorityOption newReduction lastResult = 
         match (newReduction, lastResult) with
@@ -190,7 +165,7 @@ module Eval =
         | (None, None) -> None 
 
     // Like a sauce in a pot all day!
-    let tryReduceDown context = 
+    let tryReduceDown eval context = 
         let pop context = 
             let nextContinuation = List.tryHead context.continuations
             Option.map (fun c -> {context with currentContext = c; continuations = List.tail context.continuations}) nextContinuation
@@ -211,7 +186,7 @@ module Eval =
             match context.continuations with 
             // If there are no continuations, it's easy -- reduce the top and only frame. This may or may not yield a value.
             | [] -> 
-                let reduced = reduceStackHelper context.currentContext |> toOption |> Option.map (fun (ret, _, _, _) -> ret) |> Option.flatten
+                let reduced = reduceStackHelper eval context.currentContext |> toOption |> Option.map (fun (ret, _, _, _) -> ret) |> Option.flatten
                 Option.map (fun r -> (invPriority, r)) reduced
 
             // As an example for when we have continuations, let's use 
@@ -224,7 +199,7 @@ module Eval =
                 let fallBack = pop context |> Option.map (go (invPriority + 1)) |> Option.flatten
                 let withThisFrameResult = result {
                     // Then we reduce the top frame and push to the continuation and try reducing.
-                    let! (ret, _, _, topRuntime) = reduceStackHelper context.currentContext 
+                    let! (ret, _, _, topRuntime) = reduceStackHelper eval context.currentContext 
                     let! returnedContext = returnToLastContinuation ret context topRuntime
                     return go invPriority returnedContext
                 } 
@@ -239,18 +214,61 @@ module Eval =
 
         go 0 context
 
-    let eval stackCommands =
+    let evalStackCommand evalPrim initContext stackCommand = 
+        match stackCommand with 
+        | BeginNewStack -> 
+            newTopFrame initContext |> pushNewTopFrame initContext |> Ok
+
+        | Expression word -> 
+            evalWord initContext word |> Result.bind (flip acceptExpression initContext)
+
+        | EndStack -> 
+            reduceStack evalPrim initContext |> Result.map (updateTop (fun t -> {t with arguments= []; currentOp = Empty;}))
+
+        | ReduceAndPushOp(maybePrimitive) -> 
+            // todo: reduce is possible
+            match maybePrimitive with
+            | Some primitive -> 
+                result {
+                    let! acceptingContext = initContext |> reduceStack evalPrim |> Result.map acceptNextOp 
+                    let evalPrimitive = parsePrimitiveToEvalPrimitive primitive |> PrimitiveProcedure
+                    return! acceptExpression evalPrimitive acceptingContext
+                }
+            | None -> initContext |> reduceStack evalPrim |> Result.map acceptNextOp // liftToExecutionContext (reduceStack >=> acceptNextOp) initContext
+
+        | ReturnNewStack -> 
+            result {
+                let! (ret, _, _, topRuntime) = reduceStackHelper evalPrim initContext.currentContext
+                return! returnToLastContinuation ret initContext topRuntime
+            }
+
+    let rec evalInEnv stackCommands env =
+        let evalPrim arguments env = 
+            match arguments with 
+            | [(Quote(stackCommand))] -> 
+                let evalResult = (evalInEnv [stackCommand] env)
+                Option.cata (fun x -> Ok (x, None)) (Option.cata Error (Error <| WrongArgumentsEval arguments) evalResult.error) evalResult.value
+            | _ -> Error <| WrongArgumentsEval arguments
+
         let rec go context commands lastResult = 
             match commands with 
             | [] -> (lastResult, Ok context)
             | command :: rest -> 
-                match evalStackCommand context command with 
+                match evalStackCommand evalPrim context command with 
                 | Ok newContext -> 
-                    let newReduction = tryReduceDown newContext
+                    let newReduction = tryReduceDown evalPrim newContext
                     let newLastResult = firstPriorityOption newReduction lastResult
                     go newContext rest newLastResult // (firstOption (tryReduceDown newContext) lastResult)
                 | Error e -> (lastResult, Error (context, e))
-        let (opt, result) = go emptyExecutionContext (flattenParseStackCommands stackCommands) None
+
+        let startingExecContext = {
+            emptyExecutionContext with 
+                currentContext = {
+                    emptyStackExecutionContext with 
+                        runtime = {emptyRuntime with environment = env}}}
+
+        let (opt, result) = go startingExecContext (flattenParseStackCommands stackCommands) None
+
         let partialResult = Option.map (fun (_, ret) -> ret) opt
         // Fold with "merge down"
         let makeRuntime r = r.continuations |> List.map (fun c -> c.runtime) |> List.fold mergeDown r.currentContext.runtime; 
@@ -264,3 +282,6 @@ module Eval =
                 runtime = makeRuntime context;
                 error = Some e;})
             result
+
+    let eval stackCommands =
+        evalInEnv stackCommands startingEnvironment

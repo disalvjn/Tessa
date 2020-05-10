@@ -11,7 +11,6 @@ module EvalTypes =
     module S = SolveTypes
 
     type CellName = CellName of string
-    type PolygonName = PolygonName of CellName * int
 
     type PrimitiveProcedure = 
         | AddNumber
@@ -29,8 +28,9 @@ module EvalTypes =
         | Snip
         | Intersect 
         | Draw
-        | Lambda
+        | MakeLambda
         | Is
+        | Eval
 
     // todo: Need to pipe Lex pos into Parse so I can add positions here
     type EvalError =
@@ -56,6 +56,7 @@ module EvalTypes =
         | WrongArgumentsToApplyOp of Exp list
         | WrongArgumentsToSnip of Exp list
         | WrongArgumentsToDraw of Exp list
+        | WrongArgumentsEval of Exp list
 
     and Exp =
         | Number of float
@@ -64,20 +65,22 @@ module EvalTypes =
         | Quote of P.StackCommand
         | Record of Map<string, Exp>
         | Array of Exp list
-        // | Lambda
+        | Lambda of Environment * string list * P.StackCommand list
         | GeoExp of GeoExp
         // An operation by itself does nothing, it's solved in the context of a point.
         // But, they're still first class citizens. One solution is GeoExp having two branches,
         // one for shapes and one for the operation.
         | LOperation of L.Operation
 
-    and PolygonIndex = PolygonIndex of L.Operation option list
+
+    and DrawMap = Map<CellName, GeoExp list>
+    and Environment = Map<string, Exp>
+    and DynamicEnvironment = Map<string, Exp>
 
     and GeoExp =
         | LPoint of L.Point
         | LSegment of L.Segment
         | LLine of L.Line
-        | Polygon of centroid: L.Point * name: PolygonName * index: PolygonIndex
 
     let toNumber exp = 
         match exp with 
@@ -93,18 +96,16 @@ module EvalTypes =
         | EmptyAcceptNext
         | Op of Operation
 
-    type EvaluatorMessage =
-        | AugmentEnvironment of Map<string, Exp>
-        | DrawGeo of string * GeoExp
-
-
-    type DrawMap = Map<CellName, GeoExp list>
-    type Environment = Map<string, Exp>
 
     type Runtime = {
         drawMap: DrawMap;
         environment: Environment;
+        dynamicEnvironment: DynamicEnvironment;
     }
+
+    type EvaluatorMessage =
+        | AugmentEnvironment of Map<string, Exp>
+        | DrawGeo of string * GeoExp
 
     type EvalResult = {
         value: Exp option;
