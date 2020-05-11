@@ -188,4 +188,32 @@ module EvalTests =
             :eval '(x :plus 5);
             """
         Assert.Equal(8.0, fromSomeNumber <| eval program)
+
+    [<Fact>]
+    let ``Test Eval Incomplete`` () =
+        let program = 
+            """
+            1 :plus 2 is 'x;
+            :eval '(x :plus 5 :plus;
+            """
+        Assert.Equal(8.0, fromSomeNumber <| eval program)
+
+    [<Fact>]
+    let ``Test Trivial Lambda`` () =
+        let program = 
+            """
+            'x 'y -> '(x :plus y) is 'f;
+            3 4 :f;
+            """
+        Assert.Equal(7.0, fromSomeNumber <| eval program)
+        
+    [<Fact>]
+    let ``Test Closure`` () =
+        let program = 
+            """
+            'x -> '('y -> '(x :plus y)) is 'make-adder;
+            :make-adder 3 is 'add3;
+            :add3 4;
+            """
+        Assert.Equal(7.0, fromSomeNumber <| eval program)
         

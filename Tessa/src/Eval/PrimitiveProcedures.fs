@@ -201,6 +201,16 @@ module PrimitiveProcedures =
         let x = (sqrt 2.0) / 2.0
         toPointArray [L.Absolute(0.0, 0.0); L.Absolute (0.0, x); L.Absolute (x, x);]
 
+    let makeLambda arguments env = 
+        result {
+            let (parameters, body) = List.splitAt (List.length arguments - 1) arguments
+            let! paramsAsSymbols = List.map extractSymbol parameters |> Result.sequence |> Result.mapError LambdaArgumentNotSymbol
+            return! 
+                match body with 
+                | [Quote(stackCommand)] -> Ok (LambdaExp <| Lambda(env, paramsAsSymbols, stackCommand), None)
+                | _ -> Error <| LambdaBodyNotExpression body
+        }
+
     let lookupPrimitiveProcedure (p: PrimitiveProcedure) eval : PrimitiveProcedureFn = 
         match p with
         | AddNumber -> addNumber
@@ -220,3 +230,4 @@ module PrimitiveProcedures =
         | IsoscelesRight -> makeIsoscelesRight
         | Is -> (fun arguments env -> assign (List.rev arguments) env)
         | Eval -> eval
+        | MakeLambda -> makeLambda

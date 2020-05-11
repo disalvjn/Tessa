@@ -57,6 +57,9 @@ module EvalTypes =
         | WrongArgumentsToSnip of Exp list
         | WrongArgumentsToDraw of Exp list
         | WrongArgumentsEval of Exp list
+        | FunctionCallArgumentMismatch of Exp list * string list
+        | LambdaArgumentNotSymbol of EvalError
+        | LambdaBodyNotExpression of Exp list
 
     and Exp =
         | Number of float
@@ -65,12 +68,14 @@ module EvalTypes =
         | Quote of P.StackCommand
         | Record of Map<string, Exp>
         | Array of Exp list
-        | Lambda of Environment * string list * P.StackCommand list
+        | LambdaExp of Lambda
         | GeoExp of GeoExp
         // An operation by itself does nothing, it's solved in the context of a point.
         // But, they're still first class citizens. One solution is GeoExp having two branches,
         // one for shapes and one for the operation.
         | LOperation of L.Operation
+
+    and Lambda = Lambda of Environment * string list * P.StackCommand
 
 
     and DrawMap = Map<CellName, GeoExp list>
@@ -89,6 +94,8 @@ module EvalTypes =
 
     type Operation =
         | Primitive of PrimitiveProcedure
+        | LambdaOp of Lambda
+        // | Function of Lambda
         // | Fun
 
     type OperationState = 

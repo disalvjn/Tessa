@@ -74,6 +74,7 @@ module Eval =
             | EmptyAcceptNext -> 
                 match exp with 
                 | PrimitiveProcedure p -> Ok <| (context.arguments, Op (Primitive p))
+                | LambdaExp lambda -> Ok <| (context.arguments, Op (LambdaOp lambda))
                 | _ -> Error <| ApplyingNonFunction exp
             | _ -> Ok <| (exp :: context.arguments, context.currentOp)
 
@@ -140,15 +141,28 @@ module Eval =
 
             | Op o -> 
                 match o with 
-                | Primitive p -> result {
-                    let fn = lookupPrimitiveProcedure p eval
-                    let! (applied, message) = fn (List.rev context.arguments) context.runtime.environment
-                    let newRuntime = 
-                        match message with
-                        | Some m -> handleMessage m context.runtime
-                        | None -> context.runtime
-                    return (Some applied, [applied], Empty, newRuntime)
-                }
+                | Primitive p -> 
+                    result {
+                        let fn = lookupPrimitiveProcedure p eval
+                        let! (applied, message) = fn (List.rev context.arguments) context.runtime.environment
+                        let newRuntime = 
+                            match message with
+                            | Some m -> handleMessage m context.runtime
+                            | None -> context.runtime
+                        return (Some applied, [applied], Empty, newRuntime)
+                    }
+                | LambdaOp (Lambda(env, parameters, body)) ->
+                    result {
+                        let arguments = List.rev context.arguments
+                        return! 
+                            if List.length arguments <> List.length parameters
+                            then Error <| FunctionCallArgumentMismatch(arguments, parameters)
+                            else result {
+                                // Eval doesn't send us messages
+                                let! (applied, _) = eval [Quote body] (Map.union (Map.ofList <| List.zip parameters arguments) env)
+                                return (Some applied, [applied], Empty, context.runtime)
+                            }
+                    }
 
     let reduceStack eval context = 
         result {
@@ -159,7 +173,7 @@ module Eval =
     let firstPriorityOption newReduction lastResult = 
         match (newReduction, lastResult) with
         | (Some (x, nr), Some (y, lr)) -> 
-            if x <= y then Some (x, nr) else Some (y, lr)
+            if x <= y then Some (x, nr) else Some (y , lr)
         | (Some (x, nr), None) -> Some (x, nr)
         | (None, Some (y, lr)) -> Some (y, lr)
         | (None, None) -> None 
