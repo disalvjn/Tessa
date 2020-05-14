@@ -186,12 +186,6 @@ module PrimitiveProcedures =
         | [GeoExp(LSegment s); GeoExp(LSegment r)] -> Ok (L.Point.Intersection(L.asLine s, L.asLine r) |> LPoint |> GeoExp, None)
         | _ -> Error <| WrongArgumentsToIntersect arguments
 
-    let draw arguments env =
-        match arguments with
-        | [GeoExp shape as gs; Quote(P.Expression(P.Identifier key))] -> Ok (gs, Some <| DrawGeo (key, shape))
-        | [GeoExp shape as gs] -> Ok(gs, Some <| DrawGeo ("p", shape))
-        | _ -> Error <| WrongArgumentsToDraw arguments
-
     let toPointArray points = 
         points
         |> List.map (LPoint >> GeoExp)
@@ -223,6 +217,34 @@ module PrimitiveProcedures =
             eval [Quote stackCommand] {runtime with dynamicEnvironment = Map.add sym exp runtime.dynamicEnvironment}
         | _ -> Error <| WrongArgumentsDynamicBind arguments
 
+    let dynamicBindDraw eval arguments runtime = 
+        match arguments with 
+        | [Quote(stackCommand)] -> 
+            result {
+                let! (_, runtime) = eval [Quote stackCommand] {runtime with dynamicEnvironment = Map.add "&!" (L.Primary [] |> LCell |> GeoExp) runtime.dynamicEnvironment;}
+                let valFromRuntime = Map.find "&!" runtime.dynamicEnvironment
+                return (valFromRuntime, None)
+            }
+        | _ -> Error <| WrongArgumentsDynamicBindDraw arguments
+
+    let draw arguments runtime = 
+        match arguments with 
+        | [GeoExp (LSegment seg)] ->
+            match Map.tryFind "&!" runtime.dynamicEnvironment with 
+            | Some(GeoExp(LCell (L.Primary segments))) ->
+                let newCell = L.Primary (seg :: segments) |> LCell |> GeoExp
+                Ok (newCell, Map.ofList [("&!", newCell)] |> AugmentDynamicEnvironment |> Some)
+            | Some x -> Error <| DrawDynamicVarImproperlyBound x
+            | None -> Error <| DrawDynamicVarUnbound
+        | _ -> Error <| WrongArgumentsToDraw arguments 
+
+    // let draw arguments env =
+    //     match arguments with
+    //     | [GeoExp shape as gs; Quote(P.Expression(P.Identifier key))] -> Ok (gs, Some <| DrawGeo (key, shape))
+    //     | [GeoExp shape as gs] -> Ok(gs, Some <| DrawGeo ("p", shape))
+    //     | _ -> Error <| WrongArgumentsToDraw arguments
+
+
     let lookupPrimitiveProcedure (p: PrimitiveProcedure) (eval: Exp list -> Runtime -> Result<(Exp* Runtime), EvalError>) : PrimitiveProcedureFn = 
         let evalJustResult = (fun arguments runtime -> eval arguments runtime |> Result.map (fun (result, runtime) -> (result, None)))
         match p with
@@ -245,3 +267,4 @@ module PrimitiveProcedures =
         | Eval -> evalJustResult
         | MakeLambda -> makeLambda
         | DynamicBind -> dynamicBind evalJustResult
+        | DynamicBindDraw -> dynamicBindDraw eval 

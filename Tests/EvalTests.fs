@@ -151,33 +151,36 @@ module EvalTests =
         let program =
             """
             [] 'a 'b 'c 'd = (:square);
-            a + b !'k;
-            (c + d !'k);
-            """
-        let er = evalResult program 
-        let x = er.runtime.drawMap
-
-        let (expected: E.DrawMap) = Map.add (E.CellName "k") [
-                L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0)) |> E.LSegment;
-                L.Link(L.Absolute(0.0, 1.0), L.Absolute(1.0, 1.0)) |> E.LSegment;] Map.empty
-
-        Assert.Equal<E.DrawMap>(expected, er.runtime.drawMap)
-
-    [<Fact>]
-    let ``Test Incomplete Draw`` () = 
-        let program =
-            """
-            [] 'a 'b 'c 'd = (:square);
-            a b + !'k;
-            (c + d !'k; 'i = )
+            <!> '(
+                a + b !;
+                c + d !;
+            ) is 'cell;
             """
         let er = evalResult program 
 
-        let (expected: E.DrawMap) = Map.add (E.CellName "k") [
-                L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0)) |> E.LSegment;
-                L.Link(L.Absolute(0.0, 1.0), L.Absolute(1.0, 1.0)) |> E.LSegment;] Map.empty
+        let (expected: E.Exp option) = 
+            L.Primary [
+                L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0));
+                L.Link(L.Absolute(0.0, 1.0), L.Absolute(1.0, 1.0))] 
+            |> E.LCell |> E.GeoExp |> Some
 
-        Assert.Equal<E.DrawMap>(expected, er.runtime.drawMap)
+        Assert.Equal(expected, Map.tryFind "cell" er.runtime.environment)
+
+    // [<Fact>]
+    // let ``Test Incomplete Draw`` () = 
+    //     let program =
+    //         """
+    //         [] 'a 'b 'c 'd = (:square);
+    //         a b + !'k;
+    //         (c + d !'k; 'i = )
+    //         """
+    //     let er = evalResult program 
+
+    //     let (expected: E.DrawMap) = Map.add (E.CellName "k") [
+    //             L.Link(L.Absolute(1.0, 0.0), L.Absolute(0.0, 0.0)) |> E.LSegment;
+    //             L.Link(L.Absolute(0.0, 1.0), L.Absolute(1.0, 1.0)) |> E.LSegment;] Map.empty
+
+    //     Assert.Equal<E.DrawMap>(expected, er.runtime.drawMap)
 
 
     [<Fact>]

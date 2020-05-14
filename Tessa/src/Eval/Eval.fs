@@ -44,7 +44,6 @@ module Eval =
 
     let emptyRuntime = {
         environment = startingEnvironment;
-        drawMap = Map.empty;
         dynamicEnvironment = Map.empty;
     }
 

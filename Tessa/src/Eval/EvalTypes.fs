@@ -10,8 +10,6 @@ module EvalTypes =
     module L = Language
     module S = SolveTypes
 
-    type CellName = CellName of string
-
     type PrimitiveProcedure = 
         | AddNumber
         | Square
@@ -60,9 +58,12 @@ module EvalTypes =
         | WrongArgumentsToDraw of Exp list
         | WrongArgumentsEval of Exp list
         | WrongArgumentsDynamicBind of Exp list
+        | WrongArgumentsDynamicBindDraw of Exp list
         | FunctionCallArgumentMismatch of Exp list * string list
         | LambdaArgumentNotSymbol of EvalError
         | LambdaBodyNotExpression of Exp list
+        | DrawDynamicVarImproperlyBound of Exp
+        | DrawDynamicVarUnbound
 
     and Exp =
         | Number of float
@@ -81,7 +82,6 @@ module EvalTypes =
     and Lambda = Lambda of Environment * string list * P.StackCommand
 
 
-    and DrawMap = Map<CellName, GeoExp list>
     and Environment = Map<string, Exp>
     and DynamicEnvironment = Map<string, Exp>
 
@@ -109,14 +109,13 @@ module EvalTypes =
 
 
     type Runtime = {
-        drawMap: DrawMap;
         environment: Environment;
         dynamicEnvironment: DynamicEnvironment;
     }
 
     type EvaluatorMessage =
         | AugmentEnvironment of Map<string, Exp>
-        | DrawGeo of string * GeoExp
+        | AugmentDynamicEnvironment of Map<string, Exp>
 
     type EvalResult = {
         value: Exp option;
