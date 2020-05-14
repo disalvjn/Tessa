@@ -50,6 +50,7 @@ module EvalTypes =
         | NotASegment of Exp 
         | NotANumber of Exp
         | NotAPoint of Exp
+        | NotACell of Exp
         | NotAnOperation of Exp
         | WrongArgumentsToAt of Exp list
         | WrongArgumentsToRotation of Exp list
@@ -95,6 +96,11 @@ module EvalTypes =
         match x with 
         | GeoExp (LPoint p) -> Ok p 
         | _ -> Error <| NotAPoint x
+
+    let asCell x =
+        match x with
+        | GeoExp (LCell c) -> Ok c 
+        | _ -> Error <| NotACell x
 
     let toNumber exp = 
         match exp with 

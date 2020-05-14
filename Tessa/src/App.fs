@@ -25,6 +25,7 @@ module App =
 
     type DrawOptions = {
         drawPoints: bool;
+        fillPolygons: bool;
     }
 
     let draw (ctx: Browser.Types.CanvasRenderingContext2D) drawOptions (shape: V.DrawShape) =
@@ -50,7 +51,8 @@ module App =
             ctx.fillStyle <- !^ options.color
             ctx.strokeStyle <- !^ options.color
             ctx.stroke()
-            ctx.fill()
+            if drawOptions.fillPolygons
+            then ctx.fill()
 
     let fromResult = function 
         | Ok o -> o 
@@ -59,48 +61,55 @@ module App =
 
     let go (ctx: Browser.Types.CanvasRenderingContext2D) (writeError: obj -> unit) program = 
         try 
-            // let lexed = Lex.lex program 
-            // // printf "%A" lexed 
+            let lexed = Lex.lex program 
+            // printf "%A" lexed 
 
-            // let parsed = lexed |> fromResult |> List.map fst |> Parse.parseList
-            // // printf "%A" parsed
+            let parsed = lexed |> fromResult |> List.map fst |> Parse.parseList
+            // printf "%A" parsed
 
-            // let result = parsed |> fromResult |> fst |> E.eval
-            // Option.iter writeError result.error
+            let result = parsed |> fromResult |> fst |> E.eval
+            Option.iter writeError result.error
 
-            // // printf "%A" result
+            let cells = 
+                Map.mapList (fun k v -> E.asCell v) result.runtime.environment 
+                |> okays 
+                // Append so we have at least one cell to map over. It's empty so it won't do anything.
+                // |> List.append [L.Primary []]
+            let tessellations = List.map (fun cell -> L.Tessellation(cell, [])) cells
+            let labels = result.runtime.labels
 
-            let (a, b, c, d) = (L.Absolute(0.0, 0.0), L.Absolute(1.0, 0.0), L.Absolute(1.0, 1.0), L.Absolute (0.0, 1.0))
-            let c2 = L.(@) (L.linkpp c d) 2.0
-            let labels = Map.ofList [("a", a); ("b", b); ("c", c); ("d", d); ("c2", c2)]
-            let border = [a |> L.linkpp b |> L.linksp c |> L.linksp d |> L.linksp a] // |> L.linksp a]
-            let halfwayAB = L.(@) (L.linkpp a b) 0.5
-            let halfwayCD = L.(@) (L.linkpp c d) 0.5
-            // writeError border
-            let cell = L.Primary <| border  @ [L.linkpp a c] @ [L.linkpp b d]
-            let mirrored1 = L.Transformed (L.MirrorOver (L.ExtendSegment <| L.linkpp b c), cell)
-            let mirrored2 = L.Transformed (L.MirrorOver (L.ExtendSegment <| L.linkpp d c), mirrored1)
-            let repeated = L.Transformed (L.Repeat(L.linkpp d c2, L.C4, 3), mirrored2)
-            let tessellation = L.Tessellation(repeated, [
-                ([L.Any; L.Any; L.Ind 0], L.Color("#ccffdd"));
-                ([L.Any; L.Any; L.Ind 1], L.Color ("#4dff88"));
-                ([L.Any; L.Any; L.Ind 2], L.Color ("#009933"));
-                ([L.Any; L.Any; L.Ind 3], L.Color ("#003311"))])
+            writeError result
+
+            // printf "%A" result
+
+            // let (a, b, c, d) = (L.Absolute(0.0, 0.0), L.Absolute(1.0, 0.0), L.Absolute(1.0, 1.0), L.Absolute (0.0, 1.0))
+            // let c2 = L.(@) (L.linkpp c d) 2.0
+            // let labels = Map.ofList [("a", a); ("b", b); ("c", c); ("d", d); ("c2", c2)]
+            // let border = [a |> L.linkpp b |> L.linksp c |> L.linksp d |> L.linksp a] // |> L.linksp a]
+            // let halfwayAB = L.(@) (L.linkpp a b) 0.5
+            // let halfwayCD = L.(@) (L.linkpp c d) 0.5
+            // // writeError border
+            // let cell = L.Primary <| border  @ [L.linkpp a c] @ [L.linkpp b d]
+            // let mirrored1 = L.Transformed (L.MirrorOver (L.ExtendSegment <| L.linkpp b c), cell)
+            // let mirrored2 = L.Transformed (L.MirrorOver (L.ExtendSegment <| L.linkpp d c), mirrored1)
+            // let repeated = L.Transformed (L.Repeat(L.linkpp d c2, L.C4, 3), mirrored2)
+            // let tessellation = L.Tessellation(repeated, [
+            //     ([L.Any; L.Any; L.Ind 0], L.Color("#ccffdd"));
+            //     ([L.Any; L.Any; L.Ind 1], L.Color ("#4dff88"));
+            //     ([L.Any; L.Any; L.Ind 2], L.Color ("#009933"));
+            //     ([L.Any; L.Any; L.Ind 3], L.Color ("#003311"))])
 
             let targets = {V.boundingHeight = 800.0; V.boundingWidth = 800.0; V.topLeft = (100.0, 100.0); V.xMax = 1000.0; V.yMax = 1000.0;}
-            let drawable = V.solveTessellation targets tessellation labels |> fromResult
+            let drawable = List.map (fun tessellation -> V.solveTessellation targets tessellation labels) tessellations  |> Result.sequence
+            writeError drawable
+            match drawable with
+            | Ok draws -> 
+                ctx.clearRect(0.0, 0.0, 1000.0, 1000.0)
+                List.iter (draw ctx {drawPoints = true; fillPolygons = false;}) <| List.concat draws
+            | Error e -> ()
 
-            // writeError drawable
-
-            // let (drawable, errs) = V.drawableFromEvalResult result targets
-            // List.iter writeError errs
-            // printf "%A" drawable
-            // printf "%A" errs
-            ctx.clearRect(0.0, 0.0, 1000.0, 1000.0)
-
-            List.iter (draw ctx {drawPoints = false}) drawable
         with 
-            | e -> writeError e
+            | e -> writeError (e.Message, e.StackTrace)
 
     // Mutable variable to count the number of times we clicked the button
     // let mutable count = 0
@@ -109,13 +118,6 @@ module App =
     myCanvas.width <- float 1000 
     myCanvas.height <- float 1000
     let ctx = myCanvas.getContext_2d()
-
-    // Test case 1: Value is an Array, so we don't catch GeoExp!! let program = "[] 'a 'b 'c 'd = (:square)"
-    let program = 
-        """
-        [] 'a 'b 'c 'd = (:square); 
-        a + b + c + d + a ! 'k;
-        """ 
 
     // go ctx program
 

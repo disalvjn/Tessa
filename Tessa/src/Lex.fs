@@ -64,9 +64,9 @@ module Lex =
         ("\.", always <| PrimitiveProc RecordAccess);
         ("\!", always <| PrimitiveProc Draw);
         ("-/-", always <| PrimitiveProc Snip);
+        ("is[^a-zA-Z]", always <| PrimitiveProc Is);
         ("\s", always WhiteSpace);
         ("--.*\n", always WhiteSpace);
-        ("is", always <| PrimitiveProc Is);
         ("&" + identifierRegExp, DynamicIdentifier);
         (identifierRegExp, Identifier);
         ("\-*[\d]+/*[\d]*", fun s -> s.Split("/") |> (fun arr -> Fraction (int arr.[0], if arr.Length = 1 then 1 else int arr.[1])));]

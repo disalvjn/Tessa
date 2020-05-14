@@ -284,6 +284,18 @@ module SolveTests =
             
         Assert.Equal(4, List.length joined)
 
+    [<Fact>]
+    let ``Join To Polygons Isosceles Triangle Split`` () = 
+        let atoms = [
+            Straight ({x = 0.35; y = 0.35},{x = 0.0; y = 0.71}); 
+            Straight ({x = 0.0; y = 0.0},{x = 0.0; y = 0.71}); 
+            Straight ({x = 0.0; y = 0.71},{x = 0.71; y = 0.71}); 
+            Straight ({x = 0.35; y = 0.35},{x = 0.0; y = 0.0}); 
+            Straight ({x = 0.71; y = 0.71},{x = 0.35; y = 0.35})];
+        let joined = joinToPolygons atoms |> Set.toList
+        Assert.Equal(2, List.length joined)
+        ()
+
 
 
 

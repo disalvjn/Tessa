@@ -96,7 +96,7 @@ module View =
                         :: (restSegments |> List.map (fun (S.Straight(_, q)) ->  toTup q))
                     | _ -> []
                         // |> List.distinct
-                DrawPolygon(origDests, {color = Option.cata id "#ffffff" <| color polygon})
+                DrawPolygon(origDests, {color = Option.cata id "#004080" <| color polygon})
             
             let toDrawPointFromPoly i (p: S.Polygon) =
                 DrawPoint ((p.centroid.x, p.centroid.y), {color = "#004080"; label = String.concat "." (List.map string p.index)})

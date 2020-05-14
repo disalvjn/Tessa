@@ -30,10 +30,12 @@ module SolvePolygons =
             then afterSplit
             else go afterSplit
 
-        Set.ofList [segment] |> go |> Set.toList
+        Set.ofList [segment] |> go |> Set.toList 
 
     let atomizeSegments segments =
-        List.collect (fun s -> atomizeSegment s segments) segments 
+        let r (x: float) : float = Math.Round (x, 2) 
+        List.collect (fun s -> atomizeSegment s segments) segments
+        |> List.map (fun (Straight(p, q)) -> Straight({x = r p.x; y =  r p.y;}, {x = r q.x; y = r q.y;}))
 
     let closed (pointSet: Set<Set<Point>>) = 
         let rec asTuples pointLinks visitedBegin = 
@@ -64,13 +66,8 @@ module SolvePolygons =
         if closedPath then Some <| List.map Straight (orderThem tupled) else None
 
     // todo: this is not true
-    let polygonIsSuperset (p1: Set<Set<Point>>) (p2: Set<Set<Point>>) = 
-        // it's point based, not segment based
-        let allPointsP1 = p1 |> Set.toList |> List.collect Set.toList |> Set.ofList
-        let allPointsP2 = p2 |> Set.toList |> List.collect Set.toList |> Set.ofList
-        Set.isSuperset allPointsP1 allPointsP2
-
     let polygonIsSuperset2 (p1: Set<Set<Point>>) (p2: Set<Set<Point>>) = 
+        false
         // it's point based, not segment based
         let allPointsP1 = p1 |> Set.toList |> List.collect Set.toList |> Set.ofList
         let allPointsP2 = p2 |> Set.toList |> List.collect Set.toList |> Set.ofList
@@ -100,7 +97,7 @@ module SolvePolygons =
         let pointTuckedAwayCozilyInsideP1 p2 =
             if Set.contains p2 allPointsP1
             then false
-            else List.exists (fun p1 -> withLineStartingFromP1PointP2LiesInside p1 p2) <| Set.toList allPointsP1
+            else List.exists (fun p1 -> withLineStartingFromP1PointP2LiesInside p1 p2) <| Set.toList (Set.difference allPointsP1 allPointsP2)
 
         let result = Set.isSuperset allPointsP1 allPointsP2 || List.exists pointTuckedAwayCozilyInsideP1 (Set.toList allPointsP2)
         result
@@ -149,6 +146,7 @@ module SolvePolygons =
             let! atomized = List.map S.solve.segment segments |> Result.sequence |> Result.map (List.concat >> atomizeSegments)
             let joinedAsSegments = joinToPolygonsAsSegments atomized 
             let polygons = orderByCentroids joinedAsSegments
+            // failAndPrint atomized
             return polygons
         }
 
