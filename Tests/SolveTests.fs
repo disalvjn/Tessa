@@ -185,17 +185,16 @@ module SolveTests =
 
     [<Fact>]
     let ``Atomize Isosceles with one cross`` () = 
-        let segments = [
-            Straight ({x = 0.53; y = 0.707},{x = 0.354; y = 0.354}); 
-            Straight ({x = 0.0; y = 0.0},{x = 0.0; y = 0.707}); 
-            Straight ({x = 0.0; y = 0.707},{x = 0.707; y = 0.707}); 
-            Straight ({x = 0.707; y = 0.707},{x = 0.0; y = 0.0})]
+        let segments = 
+            [
+            Straight ({x = 0.3535533905932738; y = 0.3535533905932738},{x = 0.5303300858899107; y = 0.7071067811865476}); 
+            Straight ({x = 0.0; y = 0.0},{x = 0.0; y = 0.7071067811865476}); 
+            Straight ({x = 0.0; y = 0.7071067811865476},{x = 0.7071067811865476; y = 0.7071067811865476}); 
+            Straight ({x = 0.7071067811865476; y = 0.7071067811865476},{x = 0.0; y = 0.0})] 
         
         let atoms = atomizeSegments segments
 
-        failAndPrint atoms
-
-        ()
+        Assert.Equal(6, List.length atoms)
 
     [<Fact>]
     let ``Closed 1`` () =
@@ -323,12 +322,11 @@ module SolveTests =
         let joined = joinToPolygons atoms |> Set.toList 
         Assert.Equal(3, List.length joined)
 
-
-
-
-
-
-
-        
-
+    // // [<Fact>]
+    // let ``Join To Polygons Isosceles Triangle Split Part 2`` () =
+    //     let atoms = [Straight ({x = 0.3535533905932738; y = 0.3535533905932738},{x = 0.5303300858899107; y = 0.7071067811865476}); 
+    //         Straight ({x = 0; y = 0},{x = 0; y = 0.7071067811865476}); 
+    //         Straight ({x = 0; y = 0.7071067811865476},{x = 0.5303300858899107; y = 0.7071067811865476}); 
+    //         Straight ({x = 0.5303300858899107; y = 0.7071067811865476},{x = 0.7071067811865476; y = 0.7071067811865476}); 
+    //         Straight ({x = 0.7071067811865476; y = 0.7071067811865476},{x = 0; y = 0})]
 

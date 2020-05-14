@@ -17,7 +17,7 @@ module SolvePolygons =
     module L = Language
 
     let roundSegment (Straight(p, q)) = 
-        let r (x: float) : float = Math.Round (x, 3) 
+        let r (x: float) : float = x // Math.Round (x, 3) 
         Straight({x = r p.x; y =  r p.y;}, {x = r q.x; y = r q.y;})
 
     let atomizeSegment segment chain = 
@@ -39,7 +39,8 @@ module SolvePolygons =
     let atomizeSegments segments =
         let rounded = List.map roundSegment segments
         // failAndPrint rounded
-        List.collect (fun s -> atomizeSegment s segments) rounded
+        let result = List.collect (fun s -> atomizeSegment s segments) rounded |> List.map roundSegment
+        result
 
     let closed (pointSet: Set<Set<Point>>) = 
         let rec asTuples pointLinks visitedBegin = 
@@ -164,6 +165,7 @@ module SolvePolygons =
             // failAndPrint atomized
             let joinedAsSegments = joinToPolygonsAsSegments atomized 
             let polygons = orderByCentroids joinedAsSegments
+            // failAndPrint polygons
             return polygons
         }
 

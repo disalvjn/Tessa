@@ -165,8 +165,10 @@ module SolveShapesInternal =
                 Ok {x = x; y = y;}
 
     let solveSegmentSnipped (original: Segment) (cutAt: SegmentChain) : (Segment * Segment) option = 
+        let (<=<) x y = x < y || x = y || (abs (x - y) < 0.001)
+
         let pointBoundedBy point p q =
-            (min p.x q.x) <= point.x && point.x <= (max p.x q.x) && (min p.y q.y) <= point.y && point.y <= (max p.y q.y)
+            (min p.x q.x) <=< point.x && point.x <=< (max p.x q.x) && (min p.y q.y) <=< point.y && point.y <=< (max p.y q.y)
 
         let pointWithinSegmentBounds point segment = 
             match segment with
@@ -176,6 +178,7 @@ module SolveShapesInternal =
             let extend1 = segmentToLine s1
             let extend2 = segmentToLine s2 
             let! intersect = solvePointLineIntersect extend1 extend2
+            // failAndPrint (intersect, pointWithinSegmentBounds intersect s1, pointWithinSegmentBounds intersect s2)
             return 
                 if (pointWithinSegmentBounds intersect s1) && (pointWithinSegmentBounds intersect s2) 
                 then Some intersect 
