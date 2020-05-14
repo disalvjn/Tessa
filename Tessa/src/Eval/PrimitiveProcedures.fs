@@ -4,6 +4,7 @@ open Tessa.Language
 open Tessa.Eval.Types
 open Tessa.Util
 open Tessa.Parse
+open Tessa.Lex
 
 // TODO: could make error handling in this significantly better by having recursive EvalErrors and building stack traces.
 // Plus, pipe Lex positional info into Parse and use that in the evaluator.
@@ -11,24 +12,27 @@ module PrimitiveProcedures =
     open EvalTypes
     open Util
     module P = Parse
+    module Lex = Lex
     module L = Language
 
-    type PrimitiveProcedureFn = (Exp list) -> Environment -> Result<Exp * EvaluatorMessage Option, EvalError>
+    type PrimitiveProcedureFn = (Exp list) -> Runtime -> Result<Exp * EvaluatorMessage Option, EvalError>
 
     let parsePrimitiveToEvalPrimitive = function
-        | P.Assign -> Assign
-        | P.ArrayBuilder -> ArrayBuilder
-        | P.RecordBuilder -> RecordBuilder
-        | P.LinkPoints -> LinkPoints
-        | P.Perpendicular -> Perpendicular
-        | P.Intersect -> Intersect
-        | P.At -> At
-        | P.ApplyOp -> ApplyOp
-        | P.Snip -> Snip
-        | P.RecordAccess -> RecordAccess
-        | P.Draw -> Draw
-        | P.Is -> Is
-        | P.Lambda -> MakeLambda
+        | Lex.Assign -> Assign
+        | Lex.ArrayBuilder -> ArrayBuilder
+        | Lex.RecordBuilder -> RecordBuilder
+        | Lex.LinkPoints -> LinkPoints
+        | Lex.Perpendicular -> Perpendicular
+        | Lex.Intersect -> Intersect
+        | Lex.At -> At
+        | Lex.ApplyOp -> ApplyOp
+        | Lex.Snip -> Snip
+        | Lex.RecordAccess -> RecordAccess
+        | Lex.Draw -> Draw
+        | Lex.Is -> Is
+        | Lex.Lambda -> MakeLambda
+        | Lex.DynamicBind -> DynamicBind
+        | Lex.DynamicBindDraw -> DynamicBindDraw
 
     let addNumber arguments env =
         let numbers = List.map toNumber arguments
@@ -54,7 +58,8 @@ module PrimitiveProcedures =
                 asSymbols |> Result.bind (fun symbols -> Ok(Array b, List.zip symbols b |> List.fold (fun e (k, v) -> Map.add k v e) Map.empty |> AugmentEnvironment |> Some))
         | _ -> Error AssignError // todo: could make this a lot more specific
 
-    let makeRecord arguments env =
+    let makeRecord arguments runtime =
+        let env = runtime.environment
         let lookupThenTupTo lookupSym = 
             match Map.tryFind lookupSym env with
             | None -> Error <| UndefinedVariable(lookupSym, "Trying to make a record with field " 
@@ -201,7 +206,8 @@ module PrimitiveProcedures =
         let x = (sqrt 2.0) / 2.0
         toPointArray [L.Absolute(0.0, 0.0); L.Absolute (0.0, x); L.Absolute (x, x);]
 
-    let makeLambda arguments env = 
+    let makeLambda arguments runtime = 
+        let env = runtime.environment
         result {
             let (parameters, body) = List.splitAt (List.length arguments - 1) arguments
             let! paramsAsSymbols = List.map extractSymbol parameters |> Result.sequence |> Result.mapError LambdaArgumentNotSymbol
@@ -211,7 +217,14 @@ module PrimitiveProcedures =
                 | _ -> Error <| LambdaBodyNotExpression body
         }
 
-    let lookupPrimitiveProcedure (p: PrimitiveProcedure) eval : PrimitiveProcedureFn = 
+    let dynamicBind eval arguments runtime =
+        match arguments with
+        | [Quote(P.Expression(P.DynamicIdentifier(sym))); exp; Quote(stackCommand)] -> 
+            eval [Quote stackCommand] {runtime with dynamicEnvironment = Map.add sym exp runtime.dynamicEnvironment}
+        | _ -> Error <| WrongArgumentsDynamicBind arguments
+
+    let lookupPrimitiveProcedure (p: PrimitiveProcedure) (eval: Exp list -> Runtime -> Result<(Exp* Runtime), EvalError>) : PrimitiveProcedureFn = 
+        let evalJustResult = (fun arguments runtime -> eval arguments runtime |> Result.map (fun (result, runtime) -> (result, None)))
         match p with
         | AddNumber -> addNumber
         | Assign -> assign
@@ -229,5 +242,6 @@ module PrimitiveProcedures =
         | Draw -> draw
         | IsoscelesRight -> makeIsoscelesRight
         | Is -> (fun arguments env -> assign (List.rev arguments) env)
-        | Eval -> eval
+        | Eval -> evalJustResult
         | MakeLambda -> makeLambda
+        | DynamicBind -> dynamicBind evalJustResult

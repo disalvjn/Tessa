@@ -6,29 +6,15 @@ module Parse =
     module Lex = Lex
     open Util
 
-    type PrimitiveProcedure = 
-        | ArrayBuilder 
-        | RecordBuilder 
-        | LinkPoints 
-        | Perpendicular 
-        | Intersect 
-        | At 
-        | ApplyOp 
-        | Assign
-        | RecordAccess
-        | Snip
-        | Draw
-        | Lambda
-        | Is
-
     type Word = 
         | Identifier of string
+        | DynamicIdentifier of string
         | Number of float
-        | PrimitiveProcedure of PrimitiveProcedure
+        | PrimitiveProcedure of Lex.PrimitiveProcToken
         | Quote of StackCommand
 
     and StackCommand =
-        | ReduceAndPushOp of PrimitiveProcedure option
+        | ReduceAndPushOp of Lex.PrimitiveProcToken option
         | NewStack of StackCommand list
         | EndStack
         | Expression of Word
@@ -71,11 +57,14 @@ module Parse =
         | Lex.Identifier i :: rest -> 
             Ok (Identifier i |> Expression |> Some, rest)
 
+        | Lex.DynamicIdentifier i :: rest ->
+            Ok (DynamicIdentifier i |> Expression |> Some, rest)
+
         | Lex.Fraction (numer, denom) :: rest -> 
             Ok ((float numer) / (float denom) |> Number |> Expression |> Some, rest)
 
         | Lex.PrimitiveProc pp :: rest -> 
-            Ok (tokenToPrimitive pp |> Some |> ReduceAndPushOp |> Some, rest)
+            Ok (pp |> Some |> ReduceAndPushOp |> Some, rest)
 
         | Lex.WhiteSpace :: rest -> 
             Ok (NewStack [] |> Some, rest)
@@ -87,20 +76,3 @@ module Parse =
             Error ExtraEndingParen
 
         | [] -> Ok (None, [])
-
-    and tokenToPrimitive (procToken : Lex.PrimitiveProcToken) : PrimitiveProcedure = 
-        match procToken with
-        | Lex.ArrayBuilder -> ArrayBuilder
-        | Lex.RecordBuilder -> RecordBuilder
-        | Lex.LinkPoints -> LinkPoints
-        | Lex.Perpendicular -> Perpendicular
-        | Lex.Intersect -> Intersect
-        | Lex.At -> At
-        | Lex.ApplyOp -> ApplyOp
-        | Lex.Assign -> Assign
-        | Lex.Snip -> Snip
-        | Lex.RecordAccess -> RecordAccess
-        | Lex.Draw -> Draw
-        | Lex.Lambda -> Lambda
-        | Lex.Is -> Is
-    

@@ -216,4 +216,16 @@ module EvalTests =
             :add3 4;
             """
         Assert.Equal(7.0, fromSomeNumber <| eval program)
+
+    [<Fact>]
+    let ``Test Simple Dynamic Binding`` () =
+        let program = 
+            """
+            'x -> '(x :plus &add-me) is 'dyn-add;
+            '&add-me 5 <> '(:dyn-add 6);
+            """
+
+        // failAndPrint <| evalResult program
+
+        Assert.Equal(11.0, fromSomeNumber <| eval program)
         

@@ -36,4 +36,6 @@ module Runtime =
             // {runtime with drawMap = ;}
 
     let mergeDown topFrameRuntime continuationRuntime =
-        {continuationRuntime with drawMap = mergeDraws topFrameRuntime.drawMap continuationRuntime.drawMap;}
+        {continuationRuntime with 
+            drawMap = mergeDraws topFrameRuntime.drawMap continuationRuntime.drawMap;
+            dynamicEnvironment = Map.union topFrameRuntime.dynamicEnvironment continuationRuntime.dynamicEnvironment;}

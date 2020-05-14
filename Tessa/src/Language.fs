@@ -298,6 +298,7 @@ module Examples =
 //   b + d !;
 //   :double-mirror (b + c) (d + c);
 //   :repeat-c4 (d + (c + d @ 2.0)) 3 ;
+//   &!;
 // ) is 'cell;
 //
 // <#> '(

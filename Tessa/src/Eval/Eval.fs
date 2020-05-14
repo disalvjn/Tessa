@@ -3,6 +3,7 @@ namespace Tessa.Eval
 open Tessa.Language
 open Tessa.Solve.Types
 open Tessa.Parse
+open Tessa.Lex
 open Tessa.Util
 open Tessa.Eval.Types
 open Tessa.Eval.PrimitiveProcedures
@@ -13,6 +14,7 @@ module Eval =
     module P = Parse
     module L = Language
     module S = SolveTypes
+    module Lex = Lex
     open Util
     open EvalTypes
     open PrimitiveProcedures
@@ -102,10 +104,16 @@ module Eval =
             | None -> Error <| UndefinedVariable(ident, "If you meant to assign, assign to a symbol.")
             | Some exp -> Ok exp
 
+    let findDynamicIdentifier execContext ident = 
+        match Map.tryFind ident execContext.currentContext.runtime.dynamicEnvironment with
+            | None -> Error <| UndefinedVariable(ident, "Did you bind the dynamic variable? If you meant to assign, assign to a symbol.")
+            | Some exp -> Ok exp
+
     let rec evalWord context exp  =
         match exp with
         | P.Number n -> Ok <| Number n
         | P.Identifier ident -> findIdentifier context ident 
+        | P.DynamicIdentifier ident -> findDynamicIdentifier context ident
         | P.PrimitiveProcedure p -> parsePrimitiveToEvalPrimitive p |> PrimitiveProcedure |> Ok
         | P.Quote q -> Ok <| Quote q
 
@@ -114,7 +122,7 @@ module Eval =
         | ReturnNewStack
         | Expression of P.Word 
         | EndStack
-        | ReduceAndPushOp of P.PrimitiveProcedure option
+        | ReduceAndPushOp of Lex.PrimitiveProcToken option
 
     let flattenParseStackCommands commands = 
         let rec flatten command = 
@@ -144,7 +152,7 @@ module Eval =
                 | Primitive p -> 
                     result {
                         let fn = lookupPrimitiveProcedure p eval
-                        let! (applied, message) = fn (List.rev context.arguments) context.runtime.environment
+                        let! (applied, message) = fn (List.rev context.arguments) context.runtime
                         let newRuntime = 
                             match message with
                             | Some m -> handleMessage m context.runtime
@@ -159,7 +167,7 @@ module Eval =
                             then Error <| FunctionCallArgumentMismatch(arguments, parameters)
                             else result {
                                 // Eval doesn't send us messages
-                                let! (applied, _) = eval [Quote body] (Map.union (Map.ofList <| List.zip parameters arguments) env)
+                                let! (applied, _) = eval [Quote body] {context.runtime with environment = (Map.union (Map.ofList <| List.zip parameters arguments) env)}
                                 return (Some applied, [applied], Empty, context.runtime)
                             }
                     }
@@ -256,12 +264,15 @@ module Eval =
                 return! returnToLastContinuation ret initContext topRuntime
             }
 
-    let rec evalInEnv stackCommands env =
-        let evalPrim arguments env = 
+    let rec evalInEnv stackCommands runtime =
+        let evalPrim arguments runtime = 
             match arguments with 
             | [(Quote(stackCommand))] -> 
-                let evalResult = (evalInEnv [stackCommand] env)
-                Option.cata (fun x -> Ok (x, None)) (Option.cata Error (Error <| WrongArgumentsEval arguments) evalResult.error) evalResult.value
+                let evalResult = (evalInEnv [stackCommand] runtime)
+                Option.cata 
+                    Ok
+                    (Option.cata Error (Error <| WrongArgumentsEval arguments) evalResult.error) 
+                    (evalResult.value |> Option.map (fun v -> (v, evalResult.runtime)))
             | _ -> Error <| WrongArgumentsEval arguments
 
         let rec go context commands lastResult = 
@@ -278,8 +289,7 @@ module Eval =
         let startingExecContext = {
             emptyExecutionContext with 
                 currentContext = {
-                    emptyStackExecutionContext with 
-                        runtime = {emptyRuntime with environment = env}}}
+                    emptyStackExecutionContext with runtime = runtime}}
 
         let (opt, result) = go startingExecContext (flattenParseStackCommands stackCommands) None
 
@@ -298,4 +308,4 @@ module Eval =
             result
 
     let eval stackCommands =
-        evalInEnv stackCommands startingEnvironment
+        evalInEnv stackCommands {emptyRuntime with environment = startingEnvironment}

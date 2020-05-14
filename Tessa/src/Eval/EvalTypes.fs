@@ -31,6 +31,8 @@ module EvalTypes =
         | MakeLambda
         | Is
         | Eval
+        | DynamicBind
+        | DynamicBindDraw
 
     // todo: Need to pipe Lex pos into Parse so I can add positions here
     type EvalError =
@@ -57,6 +59,7 @@ module EvalTypes =
         | WrongArgumentsToSnip of Exp list
         | WrongArgumentsToDraw of Exp list
         | WrongArgumentsEval of Exp list
+        | WrongArgumentsDynamicBind of Exp list
         | FunctionCallArgumentMismatch of Exp list * string list
         | LambdaArgumentNotSymbol of EvalError
         | LambdaBodyNotExpression of Exp list
@@ -86,6 +89,7 @@ module EvalTypes =
         | LPoint of L.Point
         | LSegment of L.Segment
         | LLine of L.Line
+        | LCell of L.Cell
 
     let toNumber exp = 
         match exp with 

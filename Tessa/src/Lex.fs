@@ -26,6 +26,8 @@ module Lex =
         | Draw // !
         | Lambda
         | Is
+        | DynamicBind
+        | DynamicBindDraw
 
     type Token = 
         | StackOp // :
@@ -51,6 +53,8 @@ module Lex =
         ("\+", always <| PrimitiveProc LinkPoints);
         ("\|\-", always <| PrimitiveProc Perpendicular);
         ("->", always <| PrimitiveProc Lambda);
+        ("<>", always <| PrimitiveProc DynamicBind);
+        ("<!>", always <| PrimitiveProc DynamicBindDraw);
         ("\*", always <| PrimitiveProc Intersect);
         ("\@", always <| PrimitiveProc At);
         ("%", always <| PrimitiveProc ApplyOp);
