@@ -45,6 +45,7 @@ module Eval =
     let emptyRuntime = {
         environment = startingEnvironment;
         dynamicEnvironment = Map.empty;
+        labels = Map.empty;
     }
 
     let emptyStackExecutionContext = {

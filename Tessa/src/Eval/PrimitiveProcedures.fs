@@ -113,11 +113,6 @@ module PrimitiveProcedures =
         | Number n -> Ok n
         | _ -> Error <| NotANumber x
 
-    let asPoint x =
-        match x with 
-        | GeoExp (LPoint p) -> Ok p 
-        | _ -> Error <| NotAPoint x
-
     let asOp x =
         match x with 
         | LOperation o -> Ok o

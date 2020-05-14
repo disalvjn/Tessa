@@ -91,6 +91,11 @@ module EvalTypes =
         | LLine of L.Line
         | LCell of L.Cell
 
+    let asPoint x =
+        match x with 
+        | GeoExp (LPoint p) -> Ok p 
+        | _ -> Error <| NotAPoint x
+
     let toNumber exp = 
         match exp with 
         | Number n -> Ok n 
@@ -111,11 +116,13 @@ module EvalTypes =
     type Runtime = {
         environment: Environment;
         dynamicEnvironment: DynamicEnvironment;
+        labels: Map<string, L.Point>;
     }
 
     type EvaluatorMessage =
         | AugmentEnvironment of Map<string, Exp>
         | AugmentDynamicEnvironment of Map<string, Exp>
+        | AugmentEnvAndLabels of Map<string, L.Point>
 
     type EvalResult = {
         value: Exp option;
