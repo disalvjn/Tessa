@@ -16,6 +16,10 @@ module SolvePolygons =
     module S = SolveShapes
     module L = Language
 
+    let roundSegment (Straight(p, q)) = 
+        let r (x: float) : float = Math.Round (x, 3) 
+        Straight({x = r p.x; y =  r p.y;}, {x = r q.x; y = r q.y;})
+
     let atomizeSegment segment chain = 
         let rec splits atoms = 
             match atoms with 
@@ -33,9 +37,9 @@ module SolvePolygons =
         Set.ofList [segment] |> go |> Set.toList 
 
     let atomizeSegments segments =
-        let r (x: float) : float = Math.Round (x, 2) 
-        List.collect (fun s -> atomizeSegment s segments) segments
-        |> List.map (fun (Straight(p, q)) -> Straight({x = r p.x; y =  r p.y;}, {x = r q.x; y = r q.y;}))
+        let rounded = List.map roundSegment segments
+        // failAndPrint rounded
+        List.collect (fun s -> atomizeSegment s segments) rounded
 
     let closed (pointSet: Set<Set<Point>>) = 
         let rec asTuples pointLinks visitedBegin = 
@@ -67,7 +71,6 @@ module SolvePolygons =
 
     // todo: this is not true
     let polygonIsSuperset2 (p1: Set<Set<Point>>) (p2: Set<Set<Point>>) = 
-        false
         // it's point based, not segment based
         let allPointsP1 = p1 |> Set.toList |> List.collect Set.toList |> Set.ofList
         let allPointsP2 = p2 |> Set.toList |> List.collect Set.toList |> Set.ofList
@@ -79,27 +82,41 @@ module SolvePolygons =
                 | [p; q;] -> S.segmentToLine <| Straight(p, q)
                 | _ -> failwith "impossible")
 
-        let withLineStartingFromP1PointP2LiesInside p1Point p2Point = 
-            let thisLine = S.segmentToLine <| Straight(p1Point, p2Point)
-            let intersections = 
-                p1Lines
-                |> List.map (fun line -> S.solvePointLineIntersect line thisLine) 
-                |> okays
-                |> List.map (S.distance p1Point)
-                |> List.filter (fun x -> x > 0.00001)
-            if List.isEmpty intersections
-            then false 
-            else
-                let closest = List.min intersections
-                // This could cause a bug -- what if the points are in opposite directions?
-                closest > S.distance p1Point p2Point 
+        // let withLineStartingFromP1PointP2LiesInside p1Point p2Point = 
+        //     let thisLine = S.segmentToLine <| Straight(p1Point, p2Point)
+        //     let intersections = 
+        //         p1Lines
+        //         |> List.map (fun line -> S.solvePointLineIntersect line thisLine) 
+        //         |> okays
+        //         |> List.map (S.distance p1Point)
+        //         |> List.filter (fun x -> x > 0.00001)
+        //     if List.isEmpty intersections
+        //     then false 
+        //     else
+        //         let closest = List.min intersections
+        //         // This could cause a bug -- what if the points are in opposite directions?
+        //         closest > S.distance p1Point p2Point 
 
-        let pointTuckedAwayCozilyInsideP1 p2 =
-            if Set.contains p2 allPointsP1
-            then false
-            else List.exists (fun p1 -> withLineStartingFromP1PointP2LiesInside p1 p2) <| Set.toList (Set.difference allPointsP1 allPointsP2)
+        let pointFromP2InsideP1 p2 = 
+            let above p q = p.y > q.y
+            let below p q = p.y < q.y
+            let right p q = p.x > q.x
+            let left p q = p.x < q.x
+            let againstLine line f g = 
+                let intersections = List.map (S.solvePointLineIntersect line) p1Lines |> okays 
+                List.length (List.filter (f p2) intersections) % 2 = 1
+                && List.length (List.filter (g p2) intersections) % 2 = 1
+            againstLine (Vertical p2.x) above below && againstLine (Sloped(p2, 0.0)) right left
 
-        let result = Set.isSuperset allPointsP1 allPointsP2 || List.exists pointTuckedAwayCozilyInsideP1 (Set.toList allPointsP2)
+        // let pointTuckedAwayCozilyInsideP1 p2 =
+        //     // false
+        //     if Set.contains p2 allPointsP1
+        //     then false
+            // (fun p1 -> withLineStartingFromP1PointP2LiesInside p1 p2) <| Set.toList (Set.difference allPointsP1 allPointsP2)
+
+        let pointFromP2InsideP1 =  List.exists pointFromP2InsideP1 (Set.toList <| Set.difference allPointsP2 allPointsP1)
+        let result = Set.isSuperset allPointsP1 allPointsP2 || pointFromP2InsideP1
+        // List.exists pointTuckedAwayCozilyInsideP1 (Set.toList allPointsP2)
         result
 
     // join must work when only some segments form completed polygons and must allow other segments to continue existing
@@ -144,9 +161,9 @@ module SolvePolygons =
     let solvePolygons segments = 
         result {
             let! atomized = List.map S.solve.segment segments |> Result.sequence |> Result.map (List.concat >> atomizeSegments)
+            // failAndPrint atomized
             let joinedAsSegments = joinToPolygonsAsSegments atomized 
             let polygons = orderByCentroids joinedAsSegments
-            // failAndPrint atomized
             return polygons
         }
 

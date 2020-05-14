@@ -184,6 +184,20 @@ module SolveTests =
         Assert.Equal(12, List.length segments) // there are 12 segments.
 
     [<Fact>]
+    let ``Atomize Isosceles with one cross`` () = 
+        let segments = [
+            Straight ({x = 0.53; y = 0.707},{x = 0.354; y = 0.354}); 
+            Straight ({x = 0.0; y = 0.0},{x = 0.0; y = 0.707}); 
+            Straight ({x = 0.0; y = 0.707},{x = 0.707; y = 0.707}); 
+            Straight ({x = 0.707; y = 0.707},{x = 0.0; y = 0.0})]
+        
+        let atoms = atomizeSegments segments
+
+        failAndPrint atoms
+
+        ()
+
+    [<Fact>]
     let ``Closed 1`` () =
         let toPoint (x, y) = {x = float x; y = float y;}
         let isClosed ps = 
@@ -294,7 +308,20 @@ module SolveTests =
             Straight ({x = 0.71; y = 0.71},{x = 0.35; y = 0.35})];
         let joined = joinToPolygons atoms |> Set.toList
         Assert.Equal(2, List.length joined)
-        ()
+
+    [<Fact>]
+    let ``Join To Polygons Isosceles With Two Splits`` () = 
+        let atoms = [
+            Straight ({x = 0.53; y = 0.71},{x = 0.35; y = 0.35}); 
+            Straight ({x = 0.0; y = 0.18},{x = 0.35; y = 0.35}); 
+            Straight ({x = 0.0; y = 0.0},{x = 0.0; y = 0.18}); 
+            Straight ({x = 0.0; y = 0.18},{x = 0.0; y = 0.71}); 
+            Straight ({x = 0.0; y = 0.71},{x = 0.53; y = 0.71}); 
+            Straight ({x = 0.53; y = 0.71},{x = 0.71; y = 0.71}); 
+            Straight ({x = 0.35; y = 0.35},{x = 0.0; y = 0.0}); 
+            Straight ({x = 0.71; y = 0.71},{x = 0.35; y = 0.35})]
+        let joined = joinToPolygons atoms |> Set.toList 
+        Assert.Equal(3, List.length joined)
 
 
 
