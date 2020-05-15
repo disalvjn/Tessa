@@ -79,6 +79,7 @@ module App =
             let labels = result.runtime.labels
 
             writeError result
+            // writeError (tessellations, labels)
 
             // printf "%A" result
 

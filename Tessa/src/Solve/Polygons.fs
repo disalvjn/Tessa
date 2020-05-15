@@ -17,7 +17,7 @@ module SolvePolygons =
     module L = Language
 
     let roundSegment (Straight(p, q)) = 
-        let r (x: float) : float = x // Math.Round (x, 3) 
+        let r (x: float) : float = Math.Round (x, 5) 
         Straight({x = r p.x; y =  r p.y;}, {x = r q.x; y = r q.y;})
 
     let atomizeSegment segment chain = 
@@ -37,12 +37,13 @@ module SolvePolygons =
         Set.ofList [segment] |> go |> Set.toList 
 
     let atomizeSegments segments =
-        let rounded = List.map roundSegment segments
-        // failAndPrint rounded
-        let result = List.collect (fun s -> atomizeSegment s segments) rounded |> List.map roundSegment
+        // failAndPrint segments
+        let result = List.collect (fun s -> atomizeSegment s (List.filter ((<>) s) segments)) segments |> List.map roundSegment
         result
 
-    let closed (pointSet: Set<Set<Point>>) = 
+    type SegmentSet = Set<Set<Point>>
+
+    let closed (pointSet: SegmentSet) = 
         let rec asTuples pointLinks visitedBegin = 
             match pointLinks with
             | [] -> []
@@ -106,7 +107,7 @@ module SolvePolygons =
             let againstLine line f g = 
                 let intersections = List.map (S.solvePointLineIntersect line) p1Lines |> okays 
                 List.length (List.filter (f p2) intersections) % 2 = 1
-                && List.length (List.filter (g p2) intersections) % 2 = 1
+                || List.length (List.filter (g p2) intersections) % 2 = 1
             againstLine (Vertical p2.x) above below && againstLine (Sloped(p2, 0.0)) right left
 
         // let pointTuckedAwayCozilyInsideP1 p2 =
@@ -121,32 +122,88 @@ module SolvePolygons =
         result
 
     // join must work when only some segments form completed polygons and must allow other segments to continue existing
+    // let joinToPolygonsAsSegments (segments : Segment list) : Segment list list = 
+
+    //     // It is 2020 after all...
+    //     let rec go (points: Point list) (visitedPoints: Set<Point>) (candidates: Set<Set<Point>> list) (elected: Set<Set<Point>> list) = 
+    //         match points with 
+    //         | [] -> elected |> List.filter (fun e -> not <| List.exists (fun e2 -> e <> e2 && polygonIsSuperset2 e e2) elected) |> List.map closed |> somes 
+    //         | p :: ps -> 
+    //             let hasSegmentUsingPoint candidate = Set.exists (fun pointSet -> Set.contains p pointSet) candidate
+    //             let (segmentsInCandidatesUsingPoint, unelectableCandidates) = List.partition hasSegmentUsingPoint candidates
+    //             let augmented = 
+    //                 List.cartesianProduct segmentsInCandidatesUsingPoint segmentsInCandidatesUsingPoint
+    //                 |> List.collect (fun (x, y) -> [Set.union x y; x; y])
+    //                 |> List.append unelectableCandidates
+    //                 |> List.distinct
+
+    //             let augmentedWithoutSupersets = List.filter (fun aug -> not <| List.exists (fun poly -> polygonIsSuperset2 aug poly) elected) augmented
+
+    //             let (newPolygons, newCandidates) = List.partition (Option.isSome << closed) augmentedWithoutSupersets
+    //             let prunedExistingPolygons = List.filter (fun poly -> not <| List.exists (fun newPoly -> polygonIsSuperset2 poly newPoly) newPolygons) elected
+
+    //             go ps (Set.add p visitedPoints) newCandidates (newPolygons @ prunedExistingPolygons)
+
+    //     let allPoints = List.collect (fun (Straight(p, q)) -> [p; q]) segments |> List.distinct
+    //     let initialCandidates = List.map (fun (Straight(p, q)) -> Set.ofList [Set.ofList [p; q]]) segments
+
+    //     go allPoints Set.empty initialCandidates []
+
+    type PolyBfsState = {
+        target: Point;
+        steps: Point list;
+        walkedEdges: Set<Point * Point>;
+    }
+
+
     let joinToPolygonsAsSegments (segments : Segment list) : Segment list list = 
+        let hasWalked polyBfsState point1 point2 = 
+            Set.contains (point1, point2) polyBfsState.walkedEdges || Set.contains (point2, point1) polyBfsState.walkedEdges
 
-        // It is 2020 after all...
-        let rec go (points: Point list) (visitedPoints: Set<Point>) (candidates: Set<Set<Point>> list) (elected: Set<Set<Point>> list) = 
-            match points with 
-            | [] -> elected |> List.filter (fun e -> not <| List.exists (fun e2 -> e <> e2 && polygonIsSuperset2 e e2) elected) |> List.map closed |> somes 
-            | p :: ps -> 
-                let hasSegmentUsingPoint candidate = Set.exists (fun pointSet -> Set.contains p pointSet) candidate
-                let (segmentsInCandidatesUsingPoint, unelectableCandidates) = List.partition hasSegmentUsingPoint candidates
-                let augmented = 
-                    List.cartesianProduct segmentsInCandidatesUsingPoint segmentsInCandidatesUsingPoint
-                    |> List.collect (fun (x, y) -> [Set.union x y; x; y])
-                    |> List.append unelectableCandidates
-                    |> List.distinct
+        let graphStep =  
+            segments
+            |> List.collect (fun (Straight(p, q)) -> [(p, q); (q, p);])
+            |> List.groupBy fst
+            |> List.map (fun (orig, dests) -> (orig, List.map snd dests |> List.distinct))
+            |> Map.ofList
 
-                let augmentedWithoutSupersets = List.filter (fun aug -> not <| List.exists (fun poly -> polygonIsSuperset2 aug poly) elected) augmented
+        let nextSteps polyBfs = 
+            let currentPoint = (List.head polyBfs.steps)
+            let nextPoints = Map.find currentPoint graphStep |> List.filter (complement (hasWalked polyBfs currentPoint))
+            List.map 
+                (fun nextPoint -> 
+                    {polyBfs with 
+                        steps = nextPoint :: polyBfs.steps; 
+                        walkedEdges = Set.add (currentPoint, nextPoint) polyBfs.walkedEdges}) 
+                nextPoints
 
-                let (newPolygons, newCandidates) = List.partition (Option.isSome << closed) augmentedWithoutSupersets
-                let prunedExistingPolygons = List.filter (fun poly -> not <| List.exists (fun newPoly -> polygonIsSuperset2 poly newPoly) newPolygons) elected
+        let polygonsContaining (p: Point) =
+            // intentionally no visited
+            let rec go (queue: PolyBfsState list) : PolyBfsState list = 
+                let nextQueue = List.collect nextSteps queue
+                let closedPolygons = List.filter (fun pbfs -> pbfs.target = List.head pbfs.steps) nextQueue
+                if not <| List.isEmpty closedPolygons 
+                then closedPolygons
+                else if List.isEmpty nextQueue
+                then []
+                else go nextQueue
 
-                go ps (Set.add p visitedPoints) newCandidates (newPolygons @ prunedExistingPolygons)
+            go [{target = p; walkedEdges = Set.empty; steps = [p]}]
 
-        let allPoints = List.collect (fun (Straight(p, q)) -> [p; q]) segments |> List.distinct
-        let initialCandidates = List.map (fun (Straight(p, q)) -> Set.ofList [Set.ofList [p; q]]) segments
+        let polyBfsToSegmentList polyBfs = 
+            Seq.zip polyBfs.steps (List.tail polyBfs.steps) |> Seq.toList |> List.map (fun (p, q) -> Straight(p, q))
 
-        go allPoints Set.empty initialCandidates []
+        let allPointsIn segmentList = 
+            List.collect (fun (Straight(p, q)) -> [p; q;]) segmentList // |> Set.ofList
+
+        let x = 
+            List.collect polygonsContaining (allPointsIn segments |> List.distinct) 
+            |> List.map polyBfsToSegmentList
+            |> List.distinctBy (allPointsIn >> Set.ofList)
+
+        x
+
+        // BFS approach
 
     let orderByCentroids (polygons: Segment list list) = 
         let centroid points = {
