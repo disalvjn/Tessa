@@ -71,33 +71,15 @@ module SolvePolygons =
         let closedPath = Set.ofList beginnings = Set.ofList endings
         if closedPath then Some <| List.map Straight (orderThem tupled) else None
 
-    // todo: this is not true
-    let polygonIsSuperset2 (p1: Set<Set<Point>>) (p2: Set<Set<Point>>) = 
+    let polygonIsSuperset2 (s1: Segment list) (s2: Segment list) = 
         // it's point based, not segment based
-        let allPointsP1 = p1 |> Set.toList |> List.collect Set.toList |> Set.ofList
-        let allPointsP2 = p2 |> Set.toList |> List.collect Set.toList |> Set.ofList
+        let allPoints = List.collect (fun (Straight(p, q)) -> [p; q;]) >> Set.ofList
+        let allPointsP1 = allPoints s1 
+        let allPointsP2 = allPoints s2 
 
-        let p1Lines = 
-            Set.toList p1 
-            |> List.map (fun set ->
-                match Set.toList set with 
-                | [p; q;] -> S.segmentToLine <| Straight(p, q)
-                | _ -> failwith "impossible")
+        let p1Lines = List.map (fun (Straight(p, q)) -> S.segmentToLine <| Straight(p, q)) s1
 
-        // let withLineStartingFromP1PointP2LiesInside p1Point p2Point = 
-        //     let thisLine = S.segmentToLine <| Straight(p1Point, p2Point)
-        //     let intersections = 
-        //         p1Lines
-        //         |> List.map (fun line -> S.solvePointLineIntersect line thisLine) 
-        //         |> okays
-        //         |> List.map (S.distance p1Point)
-        //         |> List.filter (fun x -> x > 0.00001)
-        //     if List.isEmpty intersections
-        //     then false 
-        //     else
-        //         let closest = List.min intersections
-        //         // This could cause a bug -- what if the points are in opposite directions?
-        //         closest > S.distance p1Point p2Point 
+        let (&&&) f g = fun x y -> f x y && g x y
 
         let pointFromP2InsideP1 p2 = 
             let above p q = p.y > q.y
@@ -105,49 +87,17 @@ module SolvePolygons =
             let right p q = p.x > q.x
             let left p q = p.x < q.x
             let againstLine line f g = 
-                let intersections = List.map (S.solvePointLineIntersect line) p1Lines |> okays 
+                let intersections = List.map (S.solvePointLineIntersect line) p1Lines |> okays |> List.distinct
                 List.length (List.filter (f p2) intersections) % 2 = 1
-                || List.length (List.filter (g p2) intersections) % 2 = 1
-            againstLine (Vertical p2.x) above below && againstLine (Sloped(p2, 0.0)) right left
+                && List.length (List.filter (g p2) intersections) % 2 = 1
+            againstLine (Vertical p2.x) above below 
+            && againstLine (Sloped(p2, 0.0)) right left
 
-        // let pointTuckedAwayCozilyInsideP1 p2 =
-        //     // false
-        //     if Set.contains p2 allPointsP1
-        //     then false
-            // (fun p1 -> withLineStartingFromP1PointP2LiesInside p1 p2) <| Set.toList (Set.difference allPointsP1 allPointsP2)
+        let pointsToCheck = (Set.toList <| Set.difference allPointsP2 allPointsP1)
 
-        let pointFromP2InsideP1 =  List.exists pointFromP2InsideP1 (Set.toList <| Set.difference allPointsP2 allPointsP1)
-        let result = Set.isSuperset allPointsP1 allPointsP2 || pointFromP2InsideP1
-        // List.exists pointTuckedAwayCozilyInsideP1 (Set.toList allPointsP2)
-        result
-
-    // join must work when only some segments form completed polygons and must allow other segments to continue existing
-    // let joinToPolygonsAsSegments (segments : Segment list) : Segment list list = 
-
-    //     // It is 2020 after all...
-    //     let rec go (points: Point list) (visitedPoints: Set<Point>) (candidates: Set<Set<Point>> list) (elected: Set<Set<Point>> list) = 
-    //         match points with 
-    //         | [] -> elected |> List.filter (fun e -> not <| List.exists (fun e2 -> e <> e2 && polygonIsSuperset2 e e2) elected) |> List.map closed |> somes 
-    //         | p :: ps -> 
-    //             let hasSegmentUsingPoint candidate = Set.exists (fun pointSet -> Set.contains p pointSet) candidate
-    //             let (segmentsInCandidatesUsingPoint, unelectableCandidates) = List.partition hasSegmentUsingPoint candidates
-    //             let augmented = 
-    //                 List.cartesianProduct segmentsInCandidatesUsingPoint segmentsInCandidatesUsingPoint
-    //                 |> List.collect (fun (x, y) -> [Set.union x y; x; y])
-    //                 |> List.append unelectableCandidates
-    //                 |> List.distinct
-
-    //             let augmentedWithoutSupersets = List.filter (fun aug -> not <| List.exists (fun poly -> polygonIsSuperset2 aug poly) elected) augmented
-
-    //             let (newPolygons, newCandidates) = List.partition (Option.isSome << closed) augmentedWithoutSupersets
-    //             let prunedExistingPolygons = List.filter (fun poly -> not <| List.exists (fun newPoly -> polygonIsSuperset2 poly newPoly) newPolygons) elected
-
-    //             go ps (Set.add p visitedPoints) newCandidates (newPolygons @ prunedExistingPolygons)
-
-    //     let allPoints = List.collect (fun (Straight(p, q)) -> [p; q]) segments |> List.distinct
-    //     let initialCandidates = List.map (fun (Straight(p, q)) -> Set.ofList [Set.ofList [p; q]]) segments
-
-    //     go allPoints Set.empty initialCandidates []
+        if List.isEmpty pointsToCheck 
+        then false 
+        else List.exists pointFromP2InsideP1  pointsToCheck
 
     type PolyBfsState = {
         target: Point;
@@ -177,7 +127,7 @@ module SolvePolygons =
                         walkedEdges = Set.add (currentPoint, nextPoint) polyBfs.walkedEdges}) 
                 nextPoints
 
-        let polygonsContaining (p: Point) =
+        let polygonsContaining (Straight(p, q): Segment) =
             // intentionally no visited
             let rec go (queue: PolyBfsState list) : PolyBfsState list = 
                 let nextQueue = List.collect nextSteps queue
@@ -188,7 +138,7 @@ module SolvePolygons =
                 then []
                 else go nextQueue
 
-            go [{target = p; walkedEdges = Set.empty; steps = [p]}]
+            go [{target = q; walkedEdges = Set.add (p, q) Set.empty; steps = [p; q]}]
 
         let polyBfsToSegmentList polyBfs = 
             Seq.zip polyBfs.steps (List.tail polyBfs.steps) |> Seq.toList |> List.map (fun (p, q) -> Straight(p, q))
@@ -197,11 +147,11 @@ module SolvePolygons =
             List.collect (fun (Straight(p, q)) -> [p; q;]) segmentList // |> Set.ofList
 
         let x = 
-            List.collect polygonsContaining (allPointsIn segments |> List.distinct) 
+            List.collect polygonsContaining segments // (allPointsIn segments |> List.distinct) 
             |> List.map polyBfsToSegmentList
             |> List.distinctBy (allPointsIn >> Set.ofList)
 
-        x
+        List.filter (fun p ->  not <| List.exists (fun p2 -> polygonIsSuperset2 p p2) x) x
 
         // BFS approach
 

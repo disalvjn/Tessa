@@ -285,17 +285,15 @@ module SolveTests =
     
     [<Fact>]
     let ``Join To Polygons Square With Cross`` () =
-        let atoms = 
-            [
-            [1;5;4;1];
-            [1;5;2;1];
-            [2;5;3;2];
-            [3;5;4;3];
-            ] |> List.collect intsToSegmentsSquareCross
-
         let joined = [[1;2;3;4;1]; [1;3;]; [2;4;]] |> List.collect intsToSegmentsSquareCross |> atomizeSegments |> joinToPolygons |> Set.toList
             
         Assert.Equal(4, List.length joined)
+
+    [<Fact>]
+    let ``Join To Polygons Inside Path`` () =
+        let joined = [[1;2;3;4;1]; [1;3;];] |> List.collect intsToSegmentsDividedTriangle |> atomizeSegments |> joinToPolygons |> Set.toList
+            
+        Assert.Equal(2, List.length joined)
 
     [<Fact>]
     let ``Join To Polygons Isosceles Triangle Split`` () = 
