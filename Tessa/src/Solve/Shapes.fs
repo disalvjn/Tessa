@@ -164,16 +164,15 @@ module SolveShapesInternal =
                 let y = evaluateLineAtWithSlope slope1 point1 x
                 Ok {x = x; y = y;}
 
-    let (<=<) x y = x < y || x = y || (abs (x - y) < 0.000001)
+    let (<<=) x y = x < y || x = y || (abs (x - y) < 0.000001)
+    let pointBoundedBy point p q =
+        (min p.x q.x) <<= point.x && point.x <<= (max p.x q.x) && (min p.y q.y) <<= point.y && point.y <<= (max p.y q.y)
+
+    let pointWithinSegmentBounds point segment = 
+        match segment with
+        | Straight(orig, dest) -> pointBoundedBy point orig dest
 
     let solveSegmentSnipped (original: Segment) (cutAt: SegmentChain) : (Segment * Segment) option = 
-
-        let pointBoundedBy point p q =
-            (min p.x q.x) <=< point.x && point.x <=< (max p.x q.x) && (min p.y q.y) <=< point.y && point.y <=< (max p.y q.y)
-
-        let pointWithinSegmentBounds point segment = 
-            match segment with
-            | Straight(orig, dest) -> pointBoundedBy point orig dest
 
         let segmentsIntersect s1 s2 =  Result.fromOk None <| result {
             let extend1 = segmentToLine s1

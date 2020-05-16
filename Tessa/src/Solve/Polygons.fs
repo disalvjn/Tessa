@@ -16,16 +16,19 @@ module SolvePolygons =
     module S = SolveShapes
     module L = Language
 
-    let roundSegment (Straight(p, q)) = 
+    let roundPoint p =
         let r (x: float) : float = Math.Round (x, 5) 
-        Straight({x = r p.x; y =  r p.y;}, {x = r q.x; y = r q.y;})
+        {x = r p.x; y = r p.y}
+
+    let roundSegment (Straight(p, q)) = 
+        Straight(roundPoint p, roundPoint q)
 
     let canonicizePoints points = 
         let maxDist = [for p in points do for q in points do S.distance p q] |> List.max
-        let epsilon = maxDist * 0.05
+        let epsilon = maxDist * 0.01
         let rec go points mapping =
             match points with
-            | [] -> Map.values mapping
+            | [] -> mapping
             | p :: ps ->
                 let found = List.filter (fun q -> abs (S.distance q p) < epsilon) (Map.values mapping)  |> List.tryHead
                 match found with 
@@ -51,20 +54,28 @@ module SolvePolygons =
 
     let atomizeSegments segments =
         // failAndPrint segments
-        let result = List.collect (fun s -> atomizeSegment s (List.filter ((<>) s) segments)) segments |> List.map roundSegment
-        result
+        let result = List.collect (fun s -> atomizeSegment s (List.filter ((<>) s) segments)) segments |> List.map roundSegment |> List.distinct
+        let canon = canonicizePoints <| List.collect (fun (Straight(p, q)) -> [p; q;]) result
+        List.map (mapSegment (flip Map.find canon)) result
+        // result
 
     type SegmentSet = Set<Set<Point>>
 
     let polygonIsSuperset (s1: Segment list) (s2: Segment list) = 
+
         // it's point based, not segment based
         let allPoints = List.collect (fun (Straight(p, q)) -> [p; q;]) >> Set.ofList
         let allPointsP1 = allPoints s1 
         let allPointsP2 = allPoints s2 
 
-        let p1Lines = List.map (fun (Straight(p, q)) -> S.segmentToLine <| Straight(p, q)) s1
+        let p1LinesNotContaining point = 
+            List.distinct s1
+            |> List.filter (fun (Straight(p, q)) -> roundPoint p <> roundPoint point && roundPoint q <> roundPoint point)
+            |> List.map (fun (Straight(p, q)) -> S.segmentToLine <| Straight(p, q)) 
 
         let (&&&) f g = fun x y -> f x y && g x y
+
+        let relevant = List.length s1 = 6 && List.length s2 = 6 && {x = 0.04419; y = 0.66291} = (List.head <| Set.toList (Set.difference allPointsP2 allPointsP1))
 
         let pointFromP2InsideP1 p2 = 
             let above p q = p.y > q.y
@@ -72,18 +83,25 @@ module SolvePolygons =
             let right p q = p.x > q.x
             let left p q = p.x < q.x
             let againstLine line f g = 
-                let intersections = List.map (S.solvePointLineIntersect line) p1Lines |> okays |> List.distinct
-                List.length (List.filter (f p2) intersections) % 2 = 1
-                && List.length (List.filter (g p2) intersections) % 2 = 1
-            againstLine (Vertical p2.x) above below 
-            && againstLine (Sloped(p2, 0.0)) right left
+                let p1Lines = p1LinesNotContaining p2
+                let intersections = 
+                    List.map (S.solvePointLineIntersect line) p1Lines 
+                    |> okays 
+                    |> List.map roundPoint 
+                    |> List.distinct
+                    // todo: this actually isn't fully accurate, we want to check if the point is on the segment
+                    |> List.filter (fun p -> List.exists (S.pointWithinSegmentBounds p) s1)
+                
+                let fFilter = List.length (List.filter (f p2) intersections) // % 2 = 1
+                let gFilter = List.length (List.filter (g p2) intersections) // % 2 = 1
+                fFilter % 2 = 1 && gFilter % 2 = 1 //+ gFilter % 2 = 1 || fFilter 
 
-            // || againstLine (Sloped(p2, 1.0)) (right &&& above) (left &&& above)
+            let result = againstLine (Vertical p2.x) above below // && againstLine (Sloped(p2, 0.0)) right left
+            result
 
-        let pointsToCheck = (Set.toList <| allPointsP2)
+        let pointsToCheck = (Set.toList <| Set.difference allPointsP2 allPointsP1)
 
-        Set.isProperSuperset allPointsP1 allPointsP2 // List.isEmpty pointsToCheck 
-        || List.exists pointFromP2InsideP1  pointsToCheck
+        Set.isProperSuperset allPointsP1 allPointsP2 || List.exists pointFromP2InsideP1  pointsToCheck
 
     type PolyBfsState = {
         target: Point;
@@ -136,7 +154,7 @@ module SolvePolygons =
             |> List.map polyBfsToSegmentList
             |> List.distinctBy (allPointsIn >> Set.ofList)
 
-        List.filter (fun p ->  not <| List.exists (fun p2 -> polygonIsSuperset p p2) x) x
+        List.filter (fun p ->  not <| List.exists (fun p2 -> p <> p2 && polygonIsSuperset p p2) x) x
 
     let orderByCentroids (polygons: Segment list list) = 
         let centroid points = {
@@ -156,6 +174,7 @@ module SolvePolygons =
             let joinedAsSegments = joinToPolygonsAsSegments atomized 
             let polygons = orderByCentroids joinedAsSegments
             // failAndPrint polygons
+            // failAndPrint <| List.length polygons
             return polygons
         }
 

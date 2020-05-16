@@ -321,3 +321,38 @@ module SolveTests =
         let joined = joinToPolygons atoms |> Set.toList
         // [for poly in joined do for (Straight(p, q)) in poly do [p.x; p.y; q.x; q.y]] |> List.concat |> List.distinct |> List.sort |> failAndPrint 
         Assert.Equal(5, List.length joined) 
+
+    [<Fact>]
+    let ``Another Join To Polygons`` () =
+        let atoms = [
+            Straight ({x = 0.0; y = 0.70711},{x = 0.04419; y = 0.66291}); 
+            Straight ({x = 0.0; y = 0.42426},{x = 0.04419; y = 0.66291}); 
+            Straight ({x = 0.04419; y = 0.66291},{x = 0.28284; y = 0.70711}); 
+            Straight ({x = 0.0; y = 0.0}, {x = 0.0; y = 0.42426}); 
+            Straight ({x = 0.0; y = 0.42426},{x = 0.0; y = 0.70711}); 
+            Straight ({x = 0.0; y = 0.70711},{x = 0.28284; y = 0.70711}); 
+            Straight ({x = 0.28284; y = 0.70711},{x = 0.70711; y = 0.70711}); 
+            Straight ({x = 0.70711; y = 0.70711},{x = 0.0; y = 0.0})
+        ]
+
+        let joined = joinToPolygons atoms |> Set.toList
+        Assert.Equal(3, List.length joined)
+
+    [<Fact>]
+    let ``Yet Another Join To Polygons`` () = 
+        let atoms = [
+            Straight ({x = 0.0; y = 0.70711},{x = 0.04419; y = 0.66291}); 
+            Straight ({x = 0.0; y = 0.42426},{x = 0.04419; y = 0.66291}); 
+            Straight ({x = 0.04419; y = 0.66291},{x = 0.28284; y = 0.70711}); 
+            Straight ({x = 0.35355; y = 0.35355},{x = 0.0; y = 0.11785}); 
+            Straight ({x = 0.35355; y = 0.35355},{x = 0.58926; y = 0.70711}); 
+            Straight ({x = 0.0; y = 0.0},{x = 0.0; y = 0.11785}); 
+            Straight ({x = 0.0; y = 0.11785},{x = 0.0; y = 0.42426}); 
+            Straight ({x = 0.0; y = 0.42426},{x = 0.0; y = 0.70711}); 
+            Straight ({x = 0.0; y = 0.70711},{x = 0.28284; y = 0.70711}); 
+            Straight ({x = 0.28284; y = 0.70711},{x = 0.58926; y = 0.70711}); 
+            Straight ({x = 0.58926; y = 0.70711},{x = 0.70711; y = 0.70711}); 
+            Straight ({x = 0.35355; y = 0.35355},{x = 0.0; y = 0.0}); 
+            Straight ({x = 0.70711; y = 0.70711},{x = 0.35355; y = 0.35355})]
+        let joined = joinToPolygons atoms |> Set.toList
+        Assert.Equal(5, List.length joined) 

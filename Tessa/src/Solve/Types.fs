@@ -52,6 +52,8 @@ module SolveTypes =
         centroid: Point;
     }
 
+    let mapSegment f (Straight(p, q)) = Straight(f p, f q)
+
     let mapPointsPolygon f polygon = 
         {polygon with 
             centroid = f polygon.centroid;
