@@ -61,6 +61,7 @@ module Language =
         | AnyToLast
         | Ind of int
         | Any
+        | OneOf of int list
 
     [<StructuralComparison>]
     [<StructuralEquality>]
@@ -291,43 +292,12 @@ module Examples =
 
         [a + b + c; down1 + down2; upChain; finalUp]
 
-
-// variadic args -- can take record or multi args for implicit record
-// if 2 args, returns val instead of record with bindings.
-// <!> '(
-//   [] 'a 'b 'c 'd = (:square);
-//   c + d @ 2.0 
-//     is 'c2;
-//   a + b + c + d + a !;
-//   a + c !;
-//   b + d !;
-//   :double-mirror (b + c) (d + c);
-//   :repeat-c4 (d + (c + d @ 2.0)) 3 ;
-//   &!;
-// ) is 'cell;
-//
-// <#> '(
-//    # _ 0 'ccffdd;
-//    # _ 1 '4dff88;
-//    # _ 2 '009933;
-//    # _ 3 '003311;
-// ) is 'effects;
-
-// tessa cell effects;
-
-// Then we can have primitive syntactic sugar operators <!> and <#> ?
-// For '&! (:cell) <> '( ... ), we have <!> '( ...)
 // [] 'a 'b 'c = (:isosceles-right);
 // a + c @ 1/2 + b @ 7/8 is 'x;
-
-
-// [] 'a 'b 'c = (:isosceles-right);
-// a + c @ 1/2 + b @ 7/8 is 'x;
-
 
 // <!> '(
 //   a + b + c + a !;
-//    a + c @ 1/2 + (b + c @ 5/6) !;
+//   a + c @ 1/2 + (b + c @ 5/6) !;
 //   a + c @ 1/2 + (b + a @ 5/6) !;
 //   a + b @ 3/5 + x + (b + c @ 2/5) !;
 //   b + x !;
@@ -342,17 +312,13 @@ module Examples =
 // :hide-points true;
 
 // '3939ac is 'primary;
-// 'ffffff is 'secondary;
+// 'cce0ff is 'secondary;
 
 // <#> '(
-//   _* 1 primary #;
-//   _* 3 primary #;
-//   _* 2 primary #;
-//   _* 7 primary #;
-//   _* 5 primary #;
-//   _* 8 primary #;
+//   _* ([] 1 2 3 7 5 8) primary #;
 //   _* _ secondary #;
   
 // ) is 'effects;
 
 // :tessa cell effects;
+

@@ -65,6 +65,7 @@ module View =
         | (L.Ind n :: ls, m :: ps) -> n = m && indexAppliesTo ls ps
         | (L.Any :: ls, m :: ps) -> indexAppliesTo ls ps
         | (L.AnyToLast :: [x], m :: ps) -> indexAppliesTo [x] [(List.last <| m :: ps)]
+        | (L.OneOf ints :: ls, m :: ps) -> List.contains m ints && indexAppliesTo ls ps
         // | ([L.AllEndingAt i], x :: xs) -> 
         | _ -> false
 

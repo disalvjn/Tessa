@@ -244,11 +244,12 @@ module PrimitiveProcedures =
             | None -> Error <| DrawDynamicVarUnbound None
         | _ -> Error <| WrongArgumentsToDraw arguments 
 
-    let asIndex exp =
+    let rec asIndex exp =
         match exp with 
         | Number n -> Ok <| L.Ind (int n)
         | Quote(P.Expression(P.Identifier "_")) -> Ok <| L.Any
         | Quote(P.Expression(P.Identifier "_*")) -> Ok <| L.AnyToLast
+        | Array exps -> List.map asNumber exps |> Result.sequence |> Result.map (List.map int >> L.OneOf)
         | _ -> Error <| NotAnIndex exp
 
     let dotoEffectsVar effectFromColor arguments runtime = 
