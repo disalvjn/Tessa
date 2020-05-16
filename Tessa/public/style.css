@@ -19,7 +19,7 @@
 /* Control the right side */
 .right-top {
   width: 30%;
-  height: 60%;
+  height: 70%;
   right: 0;
   top: 0;
   border: 1px green solid;
@@ -29,7 +29,7 @@
 }
 .right-bottom {
   width: 30%;
-  height: 40%;
+  height: 30%;
   right: 0;
   bottom: 0;
   border: 1px red solid;

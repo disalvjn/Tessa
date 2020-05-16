@@ -45,7 +45,7 @@ module Lex =
         | QuotePrimitive // ' -- allows us pass + etc. into function as an argument without trigger stack
         // Primitive Procedures
 
-    let identifierRegExp  = "[a-zA-Z_]+[a-zA-Z\-\d_]*"
+    let identifierRegExp  = "\d*[a-zA-Z_\*]+[a-zA-Z\-\d_\*]*"
 
     let matchesToTokens = 
         [(":", always StackOp);

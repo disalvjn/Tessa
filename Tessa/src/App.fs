@@ -56,6 +56,7 @@ module App =
             | V.Stroke -> 
                 ctx.stroke()
             | V.Fill -> 
+                ctx.stroke()
                 ctx.fill()
             ctx.strokeStyle <- !^ "ffffff"
             ctx.fillStyle <- !^ "ffffff"
@@ -115,7 +116,7 @@ module App =
             //     ([L.Any; L.Any; L.Ind 2], L.Color ("#009933"));
             //     ([L.Any; L.Any; L.Ind 3], L.Color ("#003311"))])
 
-            let targets = {V.boundingHeight = 800.0; V.boundingWidth = 800.0; V.topLeft = (100.0, 100.0); V.xMax = 1000.0; V.yMax = 1000.0;}
+            let targets = {V.boundingHeight = 1950.0; V.boundingWidth = 1950.0; V.topLeft = (25.0, 25.0); V.xMax = 2000.0; V.yMax = 2000.0;}
             let drawable = List.map (fun tessellation -> V.solveTessellation targets tessellation labels) tessellations  |> Result.sequence
             writeError drawable
             match drawable with
@@ -132,8 +133,8 @@ module App =
     // let mutable count = 0
     // https://github.com/fable-compiler/fable2-samples/blob/master/browser/src/App.fs
     let mutable myCanvas : Browser.Types.HTMLCanvasElement = unbox window.document.getElementById "canvas" // myCanvas is defined in public/index.html 
-    myCanvas.width <- float 1000 
-    myCanvas.height <- float 1000
+    myCanvas.width <- float 2000 
+    myCanvas.height <- float 2000
     let ctx = myCanvas.getContext_2d()
 
     // go ctx program

@@ -64,6 +64,7 @@ module View =
         | ([], []) -> true
         | (L.Ind n :: ls, m :: ps) -> n = m && indexAppliesTo ls ps
         | (L.Any :: ls, m :: ps) -> indexAppliesTo ls ps
+        | (L.AnyToLast :: [x], m :: ps) -> indexAppliesTo [x] [(List.last <| m :: ps)]
         // | ([L.AllEndingAt i], x :: xs) -> 
         | _ -> false
 

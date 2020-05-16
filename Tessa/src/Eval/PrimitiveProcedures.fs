@@ -261,7 +261,7 @@ module PrimitiveProcedures =
             return! 
                 match Map.tryFind "&#" runtime.dynamicEnvironment with 
                 | Some (LEffects effects) -> 
-                    let newEffects = LEffects <| asEffect :: effects
+                    let newEffects = LEffects <| asEffect :: effects 
                     Ok (newEffects, Map.ofList [("&#", newEffects)] |> AugmentDynamicEnvironment |> Some)
                 | Some x -> Error <| WrongArgumentsToEffect arguments
                 | None -> Error <| EffectDynamicVarUnbound

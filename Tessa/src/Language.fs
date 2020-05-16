@@ -55,16 +55,20 @@ module Language =
         | RepeatC4 of span: Segment * times: int
         | Repeat of span: Segment * rotation: Rotation * int 
 
+    [<StructuralComparison>]
+    [<StructuralEquality>]
+    type Index = 
+        | AnyToLast
+        | Ind of int
+        | Any
+
+    [<StructuralComparison>]
+    [<StructuralEquality>]
     type Cell = 
         | Primary of Segment list 
         | Combined of (int * Cell) list 
         | Transformed of CellOp * Cell
         | Embedding of primary: Cell * secondary: Cell * Index list
-
-    type Index = 
-        | AnyToLast
-        | Ind of int
-        | Any
 
     type Effect = 
         | Fill of color: string 
@@ -313,3 +317,42 @@ module Examples =
 
 // Then we can have primitive syntactic sugar operators <!> and <#> ?
 // For '&! (:cell) <> '( ... ), we have <!> '( ...)
+// [] 'a 'b 'c = (:isosceles-right);
+// a + c @ 1/2 + b @ 7/8 is 'x;
+
+
+// [] 'a 'b 'c = (:isosceles-right);
+// a + c @ 1/2 + b @ 7/8 is 'x;
+
+
+// <!> '(
+//   a + b + c + a !;
+//    a + c @ 1/2 + (b + c @ 5/6) !;
+//   a + c @ 1/2 + (b + a @ 5/6) !;
+//   a + b @ 3/5 + x + (b + c @ 2/5) !;
+//   b + x !;
+//   a + b @ 3/5 + (a + c @ 1/4)!;
+//   b + c @ 2/5 + (a + c @ 3/4) !;
+//   a + c :mirror;
+//   b + c :mirror;
+//   a + b :mirror;
+//   c + (c + b @ 2) :repeat-c4 6;
+// ) is 'cell;
+
+// :hide-points true;
+
+// '3939ac is 'primary;
+// 'ffffff is 'secondary;
+
+// <#> '(
+//   _* 1 primary #;
+//   _* 3 primary #;
+//   _* 2 primary #;
+//   _* 7 primary #;
+//   _* 5 primary #;
+//   _* 8 primary #;
+//   _* _ secondary #;
+  
+// ) is 'effects;
+
+// :tessa cell effects;

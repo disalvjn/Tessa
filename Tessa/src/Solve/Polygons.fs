@@ -198,12 +198,12 @@ module SolvePolygons =
 
     // Polygon * CanonState should be its own record with fns defined on it like mapPoint and mapPointId.
     // MapPoint automatically copies.
-    let rec solveCell (cell: L.Cell) = 
+    let solveCellPure (cell: L.Cell) recurse = 
         match cell with 
         | L.Primary segments -> solvePolygons segments
         | L.Transformed(op, cell) -> 
             result {
-                let! solved = solveCell cell 
+                let! solved = recurse cell
                 return! 
                     match op with 
                     | L.MirrorOver(unsolvedSegment)->
@@ -258,3 +258,17 @@ module SolvePolygons =
                     //     }
             }
         | _ -> failwith "not here yet dawg"
+    
+    let makeSolveCellMemoize () =
+        let mutable map = Map.empty 
+        let rec go cell = 
+            match Map.tryFind cell map with
+            | None -> 
+                let solved = solveCellPure cell go
+                map <- Map.add cell solved map
+                solved
+            | Some c -> c
+        go
+    
+    let solveCell = makeSolveCellMemoize ()
+
