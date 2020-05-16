@@ -20,6 +20,19 @@ module SolvePolygons =
         let r (x: float) : float = Math.Round (x, 5) 
         Straight({x = r p.x; y =  r p.y;}, {x = r q.x; y = r q.y;})
 
+    let canonicizePoints points = 
+        let maxDist = [for p in points do for q in points do S.distance p q] |> List.max
+        let epsilon = maxDist * 0.05
+        let rec go points mapping =
+            match points with
+            | [] -> Map.values mapping
+            | p :: ps ->
+                let found = List.filter (fun q -> abs (S.distance q p) < epsilon) (Map.values mapping)  |> List.tryHead
+                match found with 
+                | Some q -> go ps (Map.add p q mapping)
+                | None -> go ps (Map.add p p mapping)
+        go points Map.empty
+
     let atomizeSegment segment chain = 
         let rec splits atoms = 
             match atoms with 
@@ -65,18 +78,18 @@ module SolvePolygons =
             againstLine (Vertical p2.x) above below 
             && againstLine (Sloped(p2, 0.0)) right left
 
-        let pointsToCheck = (Set.toList <| Set.difference allPointsP2 allPointsP1)
+            // || againstLine (Sloped(p2, 1.0)) (right &&& above) (left &&& above)
 
-        if List.isEmpty pointsToCheck 
-        then false 
-        else List.exists pointFromP2InsideP1  pointsToCheck
+        let pointsToCheck = (Set.toList <| allPointsP2)
+
+        Set.isProperSuperset allPointsP1 allPointsP2 // List.isEmpty pointsToCheck 
+        || List.exists pointFromP2InsideP1  pointsToCheck
 
     type PolyBfsState = {
         target: Point;
         steps: Point list;
         walkedEdges: Set<Point * Point>;
     }
-
 
     let joinToPolygonsAsSegments (segments : Segment list) : Segment list list = 
         let hasWalked polyBfsState point1 point2 = 
