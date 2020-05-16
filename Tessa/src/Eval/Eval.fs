@@ -41,6 +41,15 @@ module Eval =
         |> Map.add "isosceles-right" (PrimitiveProcedure IsoscelesRight)
         |> Map.add "c4-clockwise" (PrimitiveProcedure C4Clockwise)
         |> Map.add "eval" (PrimitiveProcedure Eval)
+        |> Map.add "mirror" (PrimitiveProcedure Mirror)
+        |> Map.add "repeat-c4" (PrimitiveProcedure RepeatC4)
+        |> Map.add "hide-points" (PrimitiveProcedure HidePoints)
+        |> Map.add "true" (Bool true)
+        |> Map.add "false" (Bool false)
+
+    let startingDynamicEnvironment: DynamicEnvironment = 
+        Map.empty
+        |> Map.add hidePointsVariable (Bool false)
 
     let emptyRuntime = {
         environment = startingEnvironment;

@@ -51,7 +51,8 @@ module Language =
         | Rotate of direction: RotationDirection * angle: Rotation * point: Point
 
     type CellOp =
-        | MirrorOver of Line
+        | MirrorOver of Segment
+        | RepeatC4 of span: Segment * times: int
         | Repeat of span: Segment * rotation: Rotation * int 
 
     type Cell = 
@@ -227,7 +228,7 @@ module Examples =
         // (:square 'cell)
         // ...
         // cell :doubleMirror (c + d) (b + c)
-        let cell = doubleMirror (asLine (c + d)) (asLine (b + c)) <| Primary [border; innerTriangle; leftDiagDown; rightDiagDown]
+        // let cell = doubleMirror (asLine (c + d)) (asLine (b + c)) <| Primary [border; innerTriangle; leftDiagDown; rightDiagDown]
 
         // let effects = [
         //     ([Any; ManyInd [1;4]], Color("purple"))

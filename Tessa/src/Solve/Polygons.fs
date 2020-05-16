@@ -166,47 +166,55 @@ module SolvePolygons =
                 let! solved = solveCell cell 
                 return! 
                     match op with 
-                    | L.MirrorOver(unsolvedLine)->
+                    | L.MirrorOver(unsolvedSegment)->
                         result {
-                            let! line = S.solve.line unsolvedLine
+                            let! line = S.solve.segment unsolvedSegment |> Result.bind S.solveLineExtendSegment
                             let mappedOver = mapPointsPolygons (mirrorPointOverLine line) solved
                             return indexAppend [0] solved @ indexAppend [1] mappedOver
                         }
+                    | L.RepeatC4(span, times) ->
+                        result {
+                            let! (Straight(orig, dest)) = S.solve.segment span |> Result.map List.head // todo: make safer
+                            let dist = S.distance orig dest
+                            // let dists = [(2.0, 0.0)]
+                            let dists = [for x in 0 .. times do for y in 0 .. times -> (float x * dist, float y * dist)]
+                            return List.collect (fun (dx, dy) -> mapPointsPolygons (fun point -> {x = point.x + dx; y = point.y + dy;}) solved) dists
+                        }
                     // Todo: Want different ones for C3, C4, C6
                     // This visit strategy works for C6 (inward -> outward) but not for c4
-                    | L.Repeat(span, rotation, times) ->
-                        result {
-                            let! (Straight(orig, dest)) = S.solve.segment span |> Result.map List.head // todo: make that safer
-                            let dist = S.distance orig dest
-                            let midpoint = S.pointOnStraightSegment orig dest 0.5
-                            let movePoint mag theta p = {x = p.x + cos(theta) * mag; y = p.y + sin(theta) * mag;} 
-                            let thetas = 
-                                (match rotation with
-                                | L.C2 -> [0; 180;]
-                                | L.C3 -> [0; 120; 240;]
-                                | L.C4 -> [0; 90; 180; 270;]
-                                | L.C6 -> [0; 60; 120; 180; 240; 300;])
-                                |> List.map (fun x -> (float x) * Math.PI / 180.0) 
+                    // | L.Repeat(span, rotation, times) ->
+                    //     result {
+                    //         let! (Straight(orig, dest)) = S.solve.segment span |> Result.map List.head // todo: make that safer
+                    //         let dist = S.distance orig dest
+                    //         let midpoint = S.pointOnStraightSegment orig dest 0.5
+                    //         let movePoint mag theta p = {x = p.x + cos(theta) * mag; y = p.y + sin(theta) * mag;} 
+                    //         let thetas = 
+                    //             (match rotation with
+                    //             | L.C2 -> [0; 180;]
+                    //             | L.C3 -> [0; 120; 240;]
+                    //             | L.C4 -> [0; 90; 180; 270;]
+                    //             | L.C6 -> [0; 60; 120; 180; 240; 300;])
+                    //             |> List.map (fun x -> (float x) * Math.PI / 180.0) 
 
-                            let rec allMidpoints times midPoints =
-                                if times = 0
-                                then midPoints
-                                else 
-                                    let genNext mps = Set.unionMany [for mp in mps do for theta in thetas -> Set.ofList [mp; movePoint dist theta mp;]]
-                                    allMidpoints (times - 1) (midPoints |> genNext |> genNext)
+                    //         let rec allMidpoints times midPoints =
+                    //             if times = 0
+                    //             then midPoints
+                    //             else 
+                    //                 let genNext mps = Set.unionMany [for mp in mps do for theta in thetas -> Set.ofList [mp; movePoint dist theta mp;]]
+                    //                 allMidpoints (times - 1) (midPoints |> genNext |> genNext)
 
-                            let midPoints = 
-                                allMidpoints times (Set.ofList [midpoint])
-                                |> Set.toList
-                                |> List.filter ((<>) midpoint) 
-                                // this is hack trying to get C6 method to work with C4
-                                |> List.filter (fun p -> S.distance p midpoint < dist * (float times + 1.0))
+                    //         let midPoints = 
+                    //             allMidpoints times (Set.ofList [midpoint])
+                    //             |> Set.toList
+                    //             |> List.filter ((<>) midpoint) 
+                    //             // this is hack trying to get C6 method to work with C4
+                    //             |> List.filter (fun p -> S.distance p midpoint < dist * (float times + 1.0))
 
-                            let movePolygonsTo nextMidpoint = 
-                                let theta = Math.Atan2(nextMidpoint.y - midpoint.y, nextMidpoint.x - midpoint.x)
-                                mapPointsPolygons (movePoint (S.distance nextMidpoint midpoint) theta) solved
+                    //         let movePolygonsTo nextMidpoint = 
+                    //             let theta = Math.Atan2(nextMidpoint.y - midpoint.y, nextMidpoint.x - midpoint.x)
+                    //             mapPointsPolygons (movePoint (S.distance nextMidpoint midpoint) theta) solved
 
-                            return solved @ List.collect movePolygonsTo midPoints
-                        }
+                    //         return solved @ List.collect movePolygonsTo midPoints
+                    //     }
             }
         | _ -> failwith "not here yet dawg"

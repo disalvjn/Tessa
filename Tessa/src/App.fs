@@ -77,6 +77,9 @@ module App =
                 // |> List.append [L.Primary []]
             let tessellations = List.map (fun cell -> L.Tessellation(cell, [])) cells
             let labels = result.runtime.labels
+            let hidePoints = 
+                Map.tryFind E.hidePointsVariable result.runtime.dynamicEnvironment 
+                |> Option.cata (function | E.Bool b -> b | _ -> false) false
 
             writeError result
             // writeError (tessellations, labels)
@@ -106,7 +109,7 @@ module App =
             match drawable with
             | Ok draws -> 
                 ctx.clearRect(0.0, 0.0, 1000.0, 1000.0)
-                List.iter (draw ctx {drawPoints = true; fillPolygons = false;}) <| List.concat draws
+                List.iter (draw ctx {drawPoints = not hidePoints; fillPolygons = false;}) <| List.concat draws
             | Error e -> ()
 
         with 

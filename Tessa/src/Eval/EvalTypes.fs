@@ -10,6 +10,8 @@ module EvalTypes =
     module L = Language
     module S = SolveTypes
 
+    let hidePointsVariable = "&hide-points"
+
     type PrimitiveProcedure = 
         | AddNumber
         | Square
@@ -31,6 +33,9 @@ module EvalTypes =
         | Eval
         | DynamicBind
         | DynamicBindDraw
+        | Mirror
+        | RepeatC4
+        | HidePoints
 
     // todo: Need to pipe Lex pos into Parse so I can add positions here
     type EvalError =
@@ -58,17 +63,19 @@ module EvalTypes =
         | WrongArgumentsToSnip of Exp list
         | WrongArgumentsToDraw of Exp list
         | WrongArgumentsEval of Exp list
-        | WrongArgumentsDynamicBind of Exp list
+        | WrongArgumentsDynamicBind of Exp list 
         | WrongArgumentsDynamicBindDraw of Exp list
         | FunctionCallArgumentMismatch of Exp list * string list
         | LambdaArgumentNotSymbol of EvalError
         | LambdaBodyNotExpression of Exp list
-        | DrawDynamicVarImproperlyBound of Exp
-        | DrawDynamicVarUnbound
+        | DrawDynamicVarImproperlyBound of Exp * L.CellOp option
+        | DrawDynamicVarUnbound of L.CellOp option
+        | WrongArgumentsToHidePoints of Exp list
 
     and Exp =
         | Number of float
         | Identifier of string
+        | Bool of bool
         | PrimitiveProcedure of PrimitiveProcedure
         | Quote of P.StackCommand
         | Record of Map<string, Exp>

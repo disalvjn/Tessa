@@ -229,9 +229,41 @@ module PrimitiveProcedures =
             | Some(GeoExp(LCell (L.Primary segments))) ->
                 let newCell = L.Primary (seg :: segments) |> LCell |> GeoExp
                 Ok (newCell, Map.ofList [("&!", newCell)] |> AugmentDynamicEnvironment |> Some)
-            | Some x -> Error <| DrawDynamicVarImproperlyBound x
-            | None -> Error <| DrawDynamicVarUnbound
+            | Some x -> Error <| DrawDynamicVarImproperlyBound (x, None)
+            | None -> Error <| DrawDynamicVarUnbound None
         | _ -> Error <| WrongArgumentsToDraw arguments 
+
+    // todo: there's enough to abstract here.
+    let mirror arguments runtime =
+        match arguments with
+        | [GeoExp(LSegment seg)] ->
+            let op = Some <| L.MirrorOver seg
+            match Map.tryFind "&!" runtime.dynamicEnvironment with 
+            | Some(GeoExp(LCell cell)) ->
+                let newCell = L.Transformed(L.MirrorOver seg, cell) |> LCell |> GeoExp
+                Ok (newCell, Map.ofList [("&!", newCell)] |> AugmentDynamicEnvironment |> Some)
+            | Some x -> Error <| DrawDynamicVarImproperlyBound (x, op)
+            | None -> Error <| DrawDynamicVarUnbound op
+        | _ -> Error <| WrongArgumentsToDraw arguments 
+
+    let repeatC4 arguments runtime =
+        match arguments with
+        | [GeoExp(LSegment seg); Number n] ->
+            let op = Some <| L.RepeatC4(seg, int n)
+            match Map.tryFind "&!" runtime.dynamicEnvironment with 
+            | Some(GeoExp(LCell cell)) ->
+                let newCell = L.Transformed(L.RepeatC4(seg, int n), cell) |> LCell |> GeoExp
+                Ok (newCell, Map.ofList [("&!", newCell)] |> AugmentDynamicEnvironment |> Some)
+            | Some x -> Error <| DrawDynamicVarImproperlyBound (x, op)
+            | None -> Error <| DrawDynamicVarUnbound op
+        | _ -> Error <| WrongArgumentsToDraw arguments 
+
+    let hidePoints arguments runtime = 
+        match arguments with 
+        | [Bool b;] -> Ok (Bool b, Map.ofList [(hidePointsVariable, Bool b)] |> AugmentDynamicEnvironment |> Some)
+        | _ -> Error <| WrongArgumentsToHidePoints arguments
+
+
 
     // let draw arguments env =
     //     match arguments with
@@ -263,3 +295,6 @@ module PrimitiveProcedures =
         | MakeLambda -> makeLambda
         | DynamicBind -> dynamicBind evalJustResult
         | DynamicBindDraw -> dynamicBindDraw eval 
+        | Mirror -> mirror
+        | RepeatC4 -> repeatC4
+        | HidePoints -> hidePoints
