@@ -71,11 +71,13 @@ module SolvePolygons =
         let p1LinesNotContaining point = 
             List.distinct s1
             |> List.filter (fun (Straight(p, q)) -> roundPoint p <> roundPoint point && roundPoint q <> roundPoint point)
-            |> List.map (fun (Straight(p, q)) -> S.segmentToLine <| Straight(p, q)) 
+            |> List.map (fun (Straight(p, q)) -> (Straight(p, q), S.segmentToLine <| Straight(p, q)))
 
         let (&&&) f g = fun x y -> f x y && g x y
 
-        let relevant = List.length s1 = 6 && List.length s2 = 6 && {x = 0.04419; y = 0.66291} = (List.head <| Set.toList (Set.difference allPointsP2 allPointsP1))
+        let solveIntersection (seg, line) otherLine =
+            let intersect = S.solvePointLineIntersect line otherLine 
+            Result.toOption intersect |> Option.filter (fun i -> S.pointWithinSegmentBounds i seg)
 
         let pointFromP2InsideP1 p2 = 
             let above p q = p.y > q.y
@@ -85,12 +87,12 @@ module SolvePolygons =
             let againstLine line f g = 
                 let p1Lines = p1LinesNotContaining p2
                 let intersections = 
-                    List.map (S.solvePointLineIntersect line) p1Lines 
-                    |> okays 
+                    List.map (fun sl -> solveIntersection sl line) p1Lines 
+                    |> somes
                     |> List.map roundPoint 
                     |> List.distinct
                     // todo: this actually isn't fully accurate, we want to check if the point is on the segment
-                    |> List.filter (fun p -> List.exists (S.pointWithinSegmentBounds p) s1)
+                    // |> List.filter (fun p -> List.exists (S.pointWithinSegmentBounds p) s1)
                 
                 let fFilter = List.length (List.filter (f p2) intersections) // % 2 = 1
                 let gFilter = List.length (List.filter (g p2) intersections) // % 2 = 1
@@ -132,16 +134,22 @@ module SolvePolygons =
 
         let polygonsContaining (Straight(p, q): Segment) =
             // intentionally no visited
-            let rec go (queue: PolyBfsState list) : PolyBfsState list = 
+            let rec go (queue: PolyBfsState list) (closed: PolyBfsState list) : PolyBfsState list = 
                 let nextQueue = List.collect nextSteps queue
-                let closedPolygons = List.filter (fun pbfs -> pbfs.target = List.head pbfs.steps) nextQueue
-                if not <| List.isEmpty closedPolygons 
-                then closedPolygons
-                else if List.isEmpty nextQueue
-                then []
-                else go nextQueue
+                let (closedPolygons, unclosedPolygons) = List.partition (fun pbfs -> pbfs.target = List.head pbfs.steps) nextQueue
+                let closedPointSets = List.map (fun pbfs -> Set.ofList pbfs.steps) closed
+                let nextClosed =  // closedPolygons
+                    List.filter (fun cp -> not <| List.exists (fun alreadyClosed -> Set.isProperSuperset (Set.ofList cp.steps) alreadyClosed) closedPointSets) closedPolygons
+                match unclosedPolygons with 
+                | [] -> nextClosed @ closed
+                | _ -> go unclosedPolygons (nextClosed @ closed)
+                // if not <| List.isEmpty closedPolygons 
+                // then closedPolygons
+                // else if List.isEmpty nextQueue
+                // then []
+                // else go nextQueue []
 
-            go [{target = q; walkedEdges = Set.add (p, q) Set.empty; steps = [p; q]}]
+            go [{target = q; walkedEdges = Set.add (p, q) Set.empty; steps = [p; q]}] []
 
         let polyBfsToSegmentList polyBfs = 
             Seq.zip polyBfs.steps (List.tail polyBfs.steps) |> Seq.toList |> List.map (fun (p, q) -> Straight(p, q))
