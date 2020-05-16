@@ -43,35 +43,7 @@ module SolvePolygons =
 
     type SegmentSet = Set<Set<Point>>
 
-    let closed (pointSet: SegmentSet) = 
-        let rec asTuples pointLinks visitedBegin = 
-            match pointLinks with
-            | [] -> []
-            | [p; q] :: rest -> 
-                if Set.contains p visitedBegin
-                then (q, p) :: (asTuples rest <| Set.add q visitedBegin)
-                else (p, q) :: (asTuples rest <| Set.add p visitedBegin)
-            | _ -> failwith "should be impossible"
-
-        let orderThem tuples = 
-            let begToTuple = List.map (fun (x, y) -> (x, (x, y))) tuples |> Map.ofList
-            match tuples with
-            | t :: ts -> 
-                let unfoldFn (visited, tup) =
-                    if Set.contains tup visited
-                    then None 
-                    else 
-                        let (thisO, thisD) = tup
-                        Some (tup, (Set.add tup visited, Map.find thisD begToTuple))
-                List.unfold unfoldFn (Set.empty, t)
-            | [] -> []
-
-        let tupled = asTuples (Set.toList (Set.map Set.toList pointSet)) Set.empty
-        let (beginnings, endings) = List.unzip tupled
-        let closedPath = Set.ofList beginnings = Set.ofList endings
-        if closedPath then Some <| List.map Straight (orderThem tupled) else None
-
-    let polygonIsSuperset2 (s1: Segment list) (s2: Segment list) = 
+    let polygonIsSuperset (s1: Segment list) (s2: Segment list) = 
         // it's point based, not segment based
         let allPoints = List.collect (fun (Straight(p, q)) -> [p; q;]) >> Set.ofList
         let allPointsP1 = allPoints s1 
@@ -151,9 +123,7 @@ module SolvePolygons =
             |> List.map polyBfsToSegmentList
             |> List.distinctBy (allPointsIn >> Set.ofList)
 
-        List.filter (fun p ->  not <| List.exists (fun p2 -> polygonIsSuperset2 p p2) x) x
-
-        // BFS approach
+        List.filter (fun p ->  not <| List.exists (fun p2 -> polygonIsSuperset p p2) x) x
 
     let orderByCentroids (polygons: Segment list list) = 
         let centroid points = {

@@ -195,27 +195,6 @@ module SolveTests =
         let atoms = atomizeSegments segments
 
         Assert.Equal(6, List.length atoms)
-
-    [<Fact>]
-    let ``Closed 1`` () =
-        let toPoint (x, y) = {x = float x; y = float y;}
-        let isClosed ps = 
-            ps 
-            |> List.map (fun (x,y) -> Set.ofList [toPoint x; toPoint y]) 
-            |> Set.ofList 
-            |> closed
-            |> Option.map (fun c -> List.map (fun (Straight(p, q)) -> ((int p.x, int p.y), (int q.x, int q.y))) c)
-
-        let (a, b, c, d) = ((0, 0), (0, 1), (1, 1), (1, 0))
-        Assert.Equal(None, isClosed [(a,b); (b, c);])
-        Assert.Equal(None, isClosed [(a,b)])
-        Assert.Equal(None, isClosed [(a,c)])
-        Assert.Equal(Some [(a,b); (b,d); (d, a)], isClosed [(a,b); (a,d); (b,d)])
-        // This behavior is correct but this isn't the best test because I don't have much control
-        // over the order.
-        Assert.Equal(Some [(b, d); (d, c); (c, b)], isClosed [(b, c); (c, d); (d, b)])
-        Assert.Equal(Some [(a,b);(b,c);(c,d);(d,a)], isClosed [(a,b);(a,d);(b,c);(d,c)])
-
     let intsToSegmentsDividedTriangle points  =
         let pointMap = [
             (1, {x = 0.0; y = 0.0;});
