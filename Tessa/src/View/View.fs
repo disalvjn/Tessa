@@ -64,6 +64,7 @@ module View =
         | ([], []) -> true
         | (L.Ind n :: ls, m :: ps) -> n = m && indexAppliesTo ls ps
         | (L.Any :: ls, m :: ps) -> indexAppliesTo ls ps
+        // | ([L.AllEndingAt i], x :: xs) -> 
         | _ -> false
 
     let solveTessellation targets (L.Tessellation(cell, effects)) (labeledPoints: Map<string, L.Point>) =
@@ -75,13 +76,17 @@ module View =
             let scaledLabeledPoints = List.map (fun (l, p) -> (l, applyPointTransform transform p)) solvedLabeledPoints
 
             let asColor = function 
-                | L.Color c -> Some c 
+                | L.Fill c -> Some c 
                 | _ -> None
 
-            let color (polygon: S.Polygon) = 
+            let colorPolygon (polygon: S.Polygon) = 
                 effects
                 |> List.filter (fun (index, e) -> indexAppliesTo index polygon.index) 
-                |> List.map (fun (_, e) -> asColor e)
+                |> List.map (fun (_, e) -> 
+                    match e with 
+                    | L.Fill c -> Some {color = "#" + c; drawMode = Fill;}
+                    | L.Stroke c -> Some {color = "#" + c; drawMode = Stroke;}
+                    | _ -> None)
                 |> somes
                 |> List.tryHead
             // let scaledLabelPoints = 
@@ -96,7 +101,7 @@ module View =
                         :: (restSegments |> List.map (fun (S.Straight(_, q)) ->  toTup q))
                     | _ -> []
                         // |> List.distinct
-                DrawPolygon(origDests, {color = Option.cata id "#004080" <| color polygon})
+                DrawPolygon(origDests, Option.cata id {color = "#004080"; drawMode = Stroke;} (colorPolygon polygon))
             
             let toDrawPointFromPoly i (p: S.Polygon) =
                 DrawPoint ((p.centroid.x, p.centroid.y), {color = "#004080"; label = String.concat "." (List.map string p.index)})
@@ -105,89 +110,3 @@ module View =
                 @ List.mapi toDrawPointFromPoly scaledPolygons
                 @ List.map (fun (label, point: S.Point) -> DrawPoint((point.x, point.y), {color = "#004080"; label=label})) scaledLabeledPoints
         }
-
-    // let viewsFromTessellation ((L.Tessellation(cell, effects)): L.Tessellation) (pointLabels: Map<string, L.Point>) =
-    // result {
-    //         // let! solvedPoints = pointLabels |> Map.mapList (fun k v -> S.solve.point v) |> Result.sequence
-    //         // todo: provision pointIds with canonState, return if showPolygonCentroid is true
-    //         return (List.map ViewPolygon polygons, canonState)
-    //     }
-
-
-    // let viewsFromEvalResult (evalResult: E.EvalResult)  
-    //     : View list * (ViewMode * S.SolveError) list =
-    //     let rec resultPartition = function 
-    //         | [] -> ([], [])
-    //         | (viewMode, Ok solved) :: rest -> 
-    //             let (oks, errs) = resultPartition rest 
-    //             ((viewMode, solved) :: oks, errs)
-    //         | (viewMode, Error err) :: rest ->
-    //             let (oks, errs) = resultPartition rest
-    //             (oks, (viewMode, err) :: errs)
-        
-    //     let toView (mode, shape) = {viewShape = shape; viewMode = mode;}
-
-    //     // todo: long term, solving shouldn't happen in here. There will be an extra layer that computes polygons,
-    //     // applies tessellations, determines indexes. 
-
-    //     let (env, draw, result) = (evalResult.runtime.environment, evalResult.runtime.drawMap, evalResult.value)
-    //     // we should be able to handle partial errors
-    //     let (fromEnvOks, fromEnvErrors) = 
-    //         env 
-    //         |> Map.filterSome isGeoExp 
-    //         |> Map.mapList (fun label shape -> (Preview label, solveGeoExp shape)) 
-    //         |> resultPartition
-
-    //     let (fromDrawOks, fromDrawErrors) = 
-    //         draw 
-    //         |> Map.mapListMany (fun (E.CellName category) shapes -> List.map (fun shape -> (Drawn category, solveGeoExp shape)) shapes) 
-    //         |> resultPartition
-
-    //     let fromResult = result |> Option.bind isGeoExp |> Option.map (fun s -> [(Preview "Current Exp", solveGeoExp s)])
-
-    //     let (retOkays, retErrs) = (List.map toView <| fromEnvOks @ fromDrawOks, fromEnvErrors @ fromDrawErrors)
-
-    //     // todo: make sure intersections between draw and result/env are shown only once
-    //     match Option.map resultPartition fromResult with 
-    //         | Some(okays, errs) -> (List.map toView okays @ retOkays, errs @ retErrs)
-    //         | None -> (retOkays, retErrs)
-
-    // let applySegmentTransform trans (seg: S.Segment) = 
-    //     match seg with 
-    //     | S.Straight(orig, dest) -> {orig = applyPointTransform trans orig; dest = applyPointTransform trans dest}
-    
-    // let applyLineTransform trans (line: S.Line) =   
-    //     match line with 
-    //     | S.Vertical(x) ->
-    //         let newX = trans.xScale * x + trans.xTrans 
-    //         {orig = {x = newX; y = 0.0;}; dest = {x = newX; y = trans.absoluteYMax;}}
-    //     | S.Sloped(point, m) ->
-    //         let newPoint = applyPointTransform trans point 
-    //         let y x =  m * (x - newPoint.x) + newPoint.y
-    //         // todo: need to solve for x that has max y
-    //         {orig = {x = trans.xMin; y = y 0.0;}; dest = {x = trans.xMax; y = y trans.yMax;}}
-
-    // todo: Somehow need a bounding box 
-    // let toDrawable trans view = 
-    //     let poptions label style = {color = "#004080";}
-    //     let soptions label style = {color = "#004080";}
-    //     match (view.viewShape, view.viewMode) with 
-    //     | (ViewPoint p, Preview label) -> [DrawPoint(applyPointTransform trans p, poptions label Filled)]
-    //     | (ViewPoint p, Drawn label) -> [DrawPoint(applyPointTransform trans p, poptions label Hollow)]
-    //     | (ViewSegment chain, Preview label) -> 
-    //         chain
-    //         |> List.map (fun s -> DrawSegment(applySegmentTransform trans s, soptions label Dotted))
-    //     | (ViewSegment chain, Drawn label) -> 
-    //         chain
-    //         |> List.map (fun s -> DrawSegment(applySegmentTransform trans s, soptions label Solid))
-    //     | (ViewLine line, Preview label) -> [DrawSegment(applyLineTransform trans line, soptions label Dotted)]
-    //     | (ViewLine line, Drawn label) -> [DrawSegment(applyLineTransform trans line, soptions label Solid)]
-
-    // let drawableFromEvalResult (evalResult: E.EvalResult) targets = 
-    //     let (views, viewErrs) = viewsFromEvalResult evalResult
-    //     let absolutePoints = extractAbsolutes evalResult
-    //     let trans = pointTranslation targets absolutePoints
-    //     // printf "%A" trans
-    //     let drawables = List.collect (toDrawable trans) views
-    //     (drawables, viewErrs)
-

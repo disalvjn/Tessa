@@ -33,9 +33,13 @@ module EvalTypes =
         | Eval
         | DynamicBind
         | DynamicBindDraw
+        | DynamicBindColor
         | Mirror
         | RepeatC4
         | HidePoints
+        | Fill 
+        | Stroke
+        | Tessa
 
     // todo: Need to pipe Lex pos into Parse so I can add positions here
     type EvalError =
@@ -57,20 +61,26 @@ module EvalTypes =
         | NotAPoint of Exp
         | NotACell of Exp
         | NotAnOperation of Exp
+        | NotAnIndex of Exp
         | WrongArgumentsToAt of Exp list
         | WrongArgumentsToRotation of Exp list
         | WrongArgumentsToApplyOp of Exp list
         | WrongArgumentsToSnip of Exp list
         | WrongArgumentsToDraw of Exp list
+        | WrongArgumentsToColor of Exp list
         | WrongArgumentsEval of Exp list
         | WrongArgumentsDynamicBind of Exp list 
         | WrongArgumentsDynamicBindDraw of Exp list
+        | WrongArgumentsDynamicBindColor of Exp list
         | FunctionCallArgumentMismatch of Exp list * string list
         | LambdaArgumentNotSymbol of EvalError
         | LambdaBodyNotExpression of Exp list
         | DrawDynamicVarImproperlyBound of Exp * L.CellOp option
         | DrawDynamicVarUnbound of L.CellOp option
         | WrongArgumentsToHidePoints of Exp list
+        | EffectDynamicVarUnbound
+        | WrongArgumentsToEffect of Exp list
+        | WrongArgumentsToTessa of Exp list
 
     and Exp =
         | Number of float
@@ -86,6 +96,7 @@ module EvalTypes =
         // But, they're still first class citizens. One solution is GeoExp having two branches,
         // one for shapes and one for the operation.
         | LOperation of L.Operation
+        | LEffects of (L.Index list * L.Effect) list
 
     and Lambda = Lambda of Environment * string list * P.StackCommand
 
@@ -130,12 +141,14 @@ module EvalTypes =
         environment: Environment;
         dynamicEnvironment: DynamicEnvironment;
         labels: Map<string, L.Point>;
+        tessellations: L.Tessellation list;
     }
 
     type EvaluatorMessage =
         | AugmentEnvironment of Map<string, Exp>
         | AugmentDynamicEnvironment of Map<string, Exp>
         | AugmentEnvAndLabels of Map<string, L.Point>
+        | NoteTessellation of L.Tessellation
 
     type EvalResult = {
         value: Exp option;

@@ -62,13 +62,13 @@ module Language =
         | Embedding of primary: Cell * secondary: Cell * Index list
 
     type Index = 
-        | AllEndingAt of int
+        | AnyToLast
         | Ind of int
-        | ManyInd of int list
         | Any
 
     type Effect = 
-        | Color of color: string 
+        | Fill of color: string 
+        | Stroke of color: string
         // | Embed of Tessellation 
 
     and Tessellation = Tessellation of Cell *  (Index list * Effect) list 

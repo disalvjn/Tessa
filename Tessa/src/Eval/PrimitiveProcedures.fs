@@ -33,6 +33,9 @@ module PrimitiveProcedures =
         | Lex.Lambda -> MakeLambda
         | Lex.DynamicBind -> DynamicBind
         | Lex.DynamicBindDraw -> DynamicBindDraw
+        | Lex.DynamicBindColor -> DynamicBindColor
+        | Lex.Fill -> Fill 
+        | Lex.Stroke -> Stroke
 
     let addNumber arguments env =
         let numbers = List.map toNumber arguments
@@ -212,15 +215,23 @@ module PrimitiveProcedures =
             eval [Quote stackCommand] {runtime with dynamicEnvironment = Map.add sym exp runtime.dynamicEnvironment}
         | _ -> Error <| WrongArgumentsDynamicBind arguments
 
-    let dynamicBindDraw eval arguments runtime = 
+    // todo: commonalities between bindDraw and bindColor
+
+    let dynamicBindSpecial sym startVal err eval arguments runtime = 
         match arguments with 
         | [Quote(stackCommand)] -> 
             result {
-                let! (_, runtime) = eval [Quote stackCommand] {runtime with dynamicEnvironment = Map.add "&!" (L.Primary [] |> LCell |> GeoExp) runtime.dynamicEnvironment;}
-                let valFromRuntime = Map.find "&!" runtime.dynamicEnvironment
+                let! (_, runtime) = eval [Quote stackCommand] {runtime with dynamicEnvironment = Map.add sym startVal runtime.dynamicEnvironment;}
+                let valFromRuntime = Map.find sym runtime.dynamicEnvironment
                 return (valFromRuntime, None)
             }
-        | _ -> Error <| WrongArgumentsDynamicBindDraw arguments
+        | _ -> Error <| err arguments
+
+    let dynamicBindDraw eval arguments runtime = 
+        dynamicBindSpecial "&!" (L.Primary [] |> LCell |> GeoExp) WrongArgumentsDynamicBindDraw eval arguments runtime
+
+    let dynamicBindColor eval arguments runtime = 
+        dynamicBindSpecial "&#" (LEffects []) WrongArgumentsDynamicBindColor eval arguments runtime
 
     let draw arguments runtime = 
         match arguments with 
@@ -232,6 +243,32 @@ module PrimitiveProcedures =
             | Some x -> Error <| DrawDynamicVarImproperlyBound (x, None)
             | None -> Error <| DrawDynamicVarUnbound None
         | _ -> Error <| WrongArgumentsToDraw arguments 
+
+    let asIndex exp =
+        match exp with 
+        | Number n -> Ok <| L.Ind (int n)
+        | Quote(P.Expression(P.Identifier "_")) -> Ok <| L.Any
+        | Quote(P.Expression(P.Identifier "_*")) -> Ok <| L.AnyToLast
+        | _ -> Error <| NotAnIndex exp
+
+    let dotoEffectsVar effectFromColor arguments runtime = 
+        let rev = List.rev arguments 
+        let (rawColor, rawIndices) = (List.head rev, List.rev <| List.tail rev)
+        result {
+            let! indices = List.map asIndex rawIndices |> Result.sequence
+            let! color = extractSymbol rawColor
+            let asEffect = (indices, effectFromColor color)
+            return! 
+                match Map.tryFind "&#" runtime.dynamicEnvironment with 
+                | Some (LEffects effects) -> 
+                    let newEffects = LEffects <| asEffect :: effects
+                    Ok (newEffects, Map.ofList [("&#", newEffects)] |> AugmentDynamicEnvironment |> Some)
+                | Some x -> Error <| WrongArgumentsToEffect arguments
+                | None -> Error <| EffectDynamicVarUnbound
+        }
+
+    let stroke = dotoEffectsVar L.Stroke
+    let fill = dotoEffectsVar L.Fill
 
     // todo: there's enough to abstract here.
     let mirror arguments runtime =
@@ -263,14 +300,11 @@ module PrimitiveProcedures =
         | [Bool b;] -> Ok (Bool b, Map.ofList [(hidePointsVariable, Bool b)] |> AugmentDynamicEnvironment |> Some)
         | _ -> Error <| WrongArgumentsToHidePoints arguments
 
-
-
-    // let draw arguments env =
-    //     match arguments with
-    //     | [GeoExp shape as gs; Quote(P.Expression(P.Identifier key))] -> Ok (gs, Some <| DrawGeo (key, shape))
-    //     | [GeoExp shape as gs] -> Ok(gs, Some <| DrawGeo ("p", shape))
-    //     | _ -> Error <| WrongArgumentsToDraw arguments
-
+    let tessa arguments runtime = 
+        match arguments with 
+        | [GeoExp (LCell cell)] -> Ok <| (GeoExp <| LCell cell, L.Tessellation(cell, []) |> NoteTessellation |> Some)
+        | [GeoExp (LCell cell); LEffects effects] -> Ok <| (GeoExp <| LCell cell, L.Tessellation(cell, effects) |> NoteTessellation |> Some)
+        | _ -> Error <| WrongArgumentsToTessa arguments
 
     let lookupPrimitiveProcedure (p: PrimitiveProcedure) (eval: Exp list -> Runtime -> Result<(Exp* Runtime), EvalError>) : PrimitiveProcedureFn = 
         let evalJustResult = (fun arguments runtime -> eval arguments runtime |> Result.map (fun (result, runtime) -> (result, None)))
@@ -295,6 +329,10 @@ module PrimitiveProcedures =
         | MakeLambda -> makeLambda
         | DynamicBind -> dynamicBind evalJustResult
         | DynamicBindDraw -> dynamicBindDraw eval 
+        | DynamicBindColor -> dynamicBindColor eval
         | Mirror -> mirror
         | RepeatC4 -> repeatC4
         | HidePoints -> hidePoints
+        | Fill -> fill 
+        | Stroke -> stroke
+        | Tessa -> tessa

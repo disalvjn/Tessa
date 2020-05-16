@@ -24,10 +24,13 @@ module Lex =
         | RecordAccess // .
         | Snip // *-*
         | Draw // !
+        | Fill
+        | Stroke
         | Lambda
         | Is
         | DynamicBind
         | DynamicBindDraw
+        | DynamicBindColor
 
     type Token = 
         | StackOp // :
@@ -42,7 +45,7 @@ module Lex =
         | QuotePrimitive // ' -- allows us pass + etc. into function as an argument without trigger stack
         // Primitive Procedures
 
-    let identifierRegExp  = "[a-zA-Z]+[a-zA-Z\-\d]*"
+    let identifierRegExp  = "[a-zA-Z_]+[a-zA-Z\-\d_]*"
 
     let matchesToTokens = 
         [(":", always StackOp);
@@ -55,6 +58,7 @@ module Lex =
         ("->", always <| PrimitiveProc Lambda);
         ("<>", always <| PrimitiveProc DynamicBind);
         ("<!>", always <| PrimitiveProc DynamicBindDraw);
+        ("<#>", always <| PrimitiveProc DynamicBindColor);
         ("\*", always <| PrimitiveProc Intersect);
         ("\@", always <| PrimitiveProc At);
         ("%", always <| PrimitiveProc ApplyOp);
@@ -63,6 +67,8 @@ module Lex =
         ("'", always QuotePrimitive);
         ("\.", always <| PrimitiveProc RecordAccess);
         ("\!", always <| PrimitiveProc Draw);
+        ("#=", always <| PrimitiveProc Stroke);
+        ("#", always <| PrimitiveProc Fill);
         ("-/-", always <| PrimitiveProc Snip);
         ("is[^a-zA-Z]", always <| PrimitiveProc Is);
         ("\s", always WhiteSpace);

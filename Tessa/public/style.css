@@ -24,6 +24,8 @@
   top: 0;
   border: 1px green solid;
   padding-top: 20px;
+  padding-bottom: 20px;
+  overflow-y: scroll;
 }
 .right-bottom {
   width: 30%;
@@ -32,6 +34,7 @@
   bottom: 0;
   border: 1px red solid;
   padding-bottom: 20px;
+  overflow-y: scroll;
 }
 
 #text {

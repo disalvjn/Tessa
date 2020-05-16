@@ -46,6 +46,9 @@ module Eval =
         |> Map.add "hide-points" (PrimitiveProcedure HidePoints)
         |> Map.add "true" (Bool true)
         |> Map.add "false" (Bool false)
+        |> Map.add "_" (Quote(P.Expression(P.Identifier("_"))))
+        |> Map.add "_*" (Quote(P.Expression(P.Identifier("_*"))))
+        |> Map.add "tessa" (PrimitiveProcedure Tessa) 
 
     let startingDynamicEnvironment: DynamicEnvironment = 
         Map.empty
@@ -55,6 +58,7 @@ module Eval =
         environment = startingEnvironment;
         dynamicEnvironment = Map.empty;
         labels = Map.empty;
+        tessellations = [];
     }
 
     let emptyStackExecutionContext = {

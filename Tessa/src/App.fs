@@ -39,20 +39,26 @@ module App =
                 ctx.fillStyle <- !^ options.color
                 ctx.closePath()
                 ctx.fill()
+                ctx.strokeStyle <- !^ "ffffff"
+                ctx.fillStyle <- !^ "ffffff"
                 ctx.font <- "18px Arial";
                 ctx.fillText(options.label, x- 10.0, y - 5.0)
         | V.DrawPolygon(segments, options) -> 
             ctx.beginPath()
+            ctx.strokeStyle <- !^ options.color
+            ctx.fillStyle <- !^ options.color
             let (fx, fy) = List.head segments
             ctx.moveTo(fx, fy)
             List.iter ctx.lineTo (List.tail segments)
             // ctx.lineTo(fx, fy)
             ctx.closePath()
-            ctx.fillStyle <- !^ options.color
-            ctx.strokeStyle <- !^ options.color
-            ctx.stroke()
-            if drawOptions.fillPolygons
-            then ctx.fill()
+            match options.drawMode with 
+            | V.Stroke -> 
+                ctx.stroke()
+            | V.Fill -> 
+                ctx.fill()
+            ctx.strokeStyle <- !^ "ffffff"
+            ctx.fillStyle <- !^ "ffffff"
 
     let fromResult = function 
         | Ok o -> o 
@@ -73,15 +79,21 @@ module App =
             let cells = 
                 Map.mapList (fun k v -> E.asCell v) result.runtime.environment 
                 |> okays 
+
+            let runTimeTessellations = result.runtime.tessellations
                 // Append so we have at least one cell to map over. It's empty so it won't do anything.
                 // |> List.append [L.Primary []]
-            let tessellations = List.map (fun cell -> L.Tessellation(cell, [])) cells
+            let tessellations = 
+                if not <| List.isEmpty runTimeTessellations 
+                then runTimeTessellations 
+                else List.map (fun cell -> L.Tessellation(cell, [])) cells
+
             let labels = result.runtime.labels
             let hidePoints = 
                 Map.tryFind E.hidePointsVariable result.runtime.dynamicEnvironment 
                 |> Option.cata (function | E.Bool b -> b | _ -> false) false
 
-            writeError result
+            writeError tessellations
             // writeError (tessellations, labels)
 
             // printf "%A" result
@@ -108,6 +120,7 @@ module App =
             writeError drawable
             match drawable with
             | Ok draws -> 
+                ctx.fillStyle <- !^ "ffffff"
                 ctx.clearRect(0.0, 0.0, 1000.0, 1000.0)
                 List.iter (draw ctx {drawPoints = not hidePoints; fillPolygons = false;}) <| List.concat draws
             | Error e -> ()

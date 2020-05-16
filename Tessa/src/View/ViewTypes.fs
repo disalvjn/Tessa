@@ -16,8 +16,11 @@ module ViewTypes =
         xMax: float; 
         yMax: float;
     }
+
+    type PolyDrawMode = Fill | Stroke
     type PolygonDrawOptions = {
         color: string;
+        drawMode: PolyDrawMode;
     }
 
     type PointDrawOptions = {
