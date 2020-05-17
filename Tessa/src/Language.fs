@@ -54,6 +54,7 @@ module Language =
         | MirrorOver of Segment
         | RepeatC4 of span: Segment * times: int
         | Repeat of span: Segment * rotation: Rotation * int 
+        | Perturb of percent: float * seed: int
 
     [<StructuralComparison>]
     [<StructuralEquality>]

@@ -23,6 +23,7 @@ module SolvePolygons =
     let roundSegment (Straight(p, q)) = 
         Straight(roundPoint p, roundPoint q)
 
+    // TODO: THIS IS QUADRATIC LEADING TO SIGNIFICANT PERFORMANCE HITS
     let canonicizePoints points = 
         let maxDist = [for p in points do for q in points do S.distance p q] |> List.max
         let epsilon = maxDist * 0.01
@@ -220,6 +221,18 @@ module SolvePolygons =
                             let dists = [for x in 0 .. times do for y in 0 .. times -> (float x * dist, float y * dist)]
                             return List.collect (fun (dx, dy) -> mapPointsPolygons (fun point -> {x = point.x + dx; y = point.y + dy;}) solved) dists
                         }
+
+                    | L.Perturb(percent, seed) ->
+                        let rnd = System.Random(seed)
+                        let allPoints = allPoints solved |> Set.ofList |> Set.toList
+                        let pointToNew = List.map (fun p -> (p, roundPoint p)) allPoints |> Map.ofList
+                        let maxX = (List.maxBy (fun p -> p.x) <| allPoints).x
+                        let maxY = (List.maxBy (fun p -> p.x) <| allPoints).y
+                        let perturbCoordinate (n: float) (m: float) = n + (percent * m * rnd.NextDouble() - (percent * m / 2.0))
+                        let perturbPoint p = {x = perturbCoordinate p.x maxX; y = perturbCoordinate p.y maxY;}
+                        let roundedToPerturbed = allPoints |> List.map roundPoint |> List.distinct |> List.map (fun p -> (p, perturbPoint p))  |> Map.ofList
+                        Ok <| mapPointsPolygonsExceptCentroids (fun p -> Map.find (Map.find p pointToNew) roundedToPerturbed) solved
+
                     // Todo: Want different ones for C3, C4, C6
                     // This visit strategy works for C6 (inward -> outward) but not for c4
                     // | L.Repeat(span, rotation, times) ->

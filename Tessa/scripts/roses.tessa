@@ -1,0 +1,57 @@
+[] 'a 'b 'c = (:isosceles-right);
+a + c @ 1/2 + b @ 7/8 is 'x;
+
+<!> '(
+  a + b + c + a !;
+  a + c @ 1/2 + (b + c @ 5/6) !;
+  a + c @ 1/2 + (b + a @ 5/6) !;
+  a + b @ 3/5 + x + (b + c @ 2/5) !;
+  b + x !;
+  a + b @ 3/5 + (a + c @ 1/4)!;
+  b + c @ 2/5 + (a + c @ 3/4) !;
+  a + c :mirror;
+  b + c :mirror;
+  a + b :mirror;
+
+) is 'cell;
+
+1/25 is 'pfactor;
+
+<!> cell '(
+  c + (c + b @ 2) :repeat-c4 13;
+  :perturb pfactor 1;
+) is 'cell12;
+
+<!> cell '(
+  c + (c + b @ 2) :repeat-c4 5;
+  :perturb pfactor 1;
+) is 'cell6;
+
+<!> cell '(
+  c + (c + b @ 2) :repeat-c4 3;
+  :perturb pfactor 1;
+) is 'cell2;
+
+:hide-points true;
+
+<#> '(
+  _* ([] 4 8) "004466" #;
+  _* ([] 1 2) "40bf80" #;
+  _* ([] 6 3) "40bf80" #;
+  _* 7 "40bf80" #;
+  _* 5 "ffffcc" #;
+  _* 0 "40bf80" #;
+  _* _ "ffffff" #;
+  
+) is 'effects;
+
+<#> '(
+  _* ([] 1 2 3 5 7 8) "660000" #;
+  _* _ "ff9999" #;
+) is 'effects2;
+
+:tessa cell12 effects;
+:tessa cell6 effects;
+:tessa cell2 effects2;
+
+-- composite: screen

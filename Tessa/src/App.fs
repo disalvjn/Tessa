@@ -23,6 +23,9 @@ module App =
     open Browser.Dom
     open Fable.Core.JsInterop
 
+    let maxX = 2000.0
+    let maxY = 2000.0
+
     type DrawOptions = {
         drawPoints: bool;
         fillPolygons: bool;
@@ -56,7 +59,7 @@ module App =
             | V.Stroke -> 
                 ctx.stroke()
             | V.Fill -> 
-                ctx.stroke()
+            //  ctx.stroke()
                 ctx.fill()
             ctx.strokeStyle <- !^ "ffffff"
             ctx.fillStyle <- !^ "ffffff"
@@ -94,16 +97,14 @@ module App =
                 Map.tryFind E.hidePointsVariable result.runtime.dynamicEnvironment 
                 |> Option.cata (function | E.Bool b -> b | _ -> false) false
 
-            let maxX = 2000.0
-            let maxY = 2000.0
-            let targets = {V.boundingHeight = 1950.0; V.boundingWidth = 1950.0; V.topLeft = (25.0, 25.0); V.xMax = maxX; V.yMax = maxY}
+            let targets = {V.boundingHeight = maxX - 50.0; V.boundingWidth = maxY - 50.0; V.topLeft = (25.0, 25.0); V.xMax = maxX; V.yMax = maxY}
             let drawable = List.map (fun tessellation -> V.solveTessellation targets tessellation labels) tessellations  |> Result.sequence
 
             match drawable with
             | Ok draws -> 
                 ctx.fillStyle <- !^ "ffffff"
                 ctx.clearRect(0.0, 0.0, maxX, maxY)
-                ctx.globalCompositeOperation <- "multiply"
+                ctx.globalCompositeOperation <- "screen"
                 List.iter (draw ctx {drawPoints = not hidePoints; fillPolygons = false;}) <| List.concat draws
             | Error e -> ()
 
@@ -114,8 +115,8 @@ module App =
     // let mutable count = 0
     // https://github.com/fable-compiler/fable2-samples/blob/master/browser/src/App.fs
     let mutable myCanvas : Browser.Types.HTMLCanvasElement = unbox window.document.getElementById "canvas" // myCanvas is defined in public/index.html 
-    myCanvas.width <- float 2000 
-    myCanvas.height <- float 2000
+    myCanvas.width <- maxX
+    myCanvas.height <- maxY
     let ctx = myCanvas.getContext_2d()
 
     // go ctx program

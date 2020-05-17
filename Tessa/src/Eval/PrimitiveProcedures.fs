@@ -304,6 +304,18 @@ module PrimitiveProcedures =
             | None -> Error <| DrawDynamicVarUnbound op
         | _ -> Error <| WrongArgumentsToDraw arguments 
 
+    let perturb arguments runtime = 
+        match arguments with
+        | [Number(percent); Number(seed)] ->
+            let op = L.Perturb(percent, (int seed))
+            match Map.tryFind "&!" runtime.dynamicEnvironment with 
+            | Some(GeoExp(LCell cell)) ->
+                let newCell = L.Transformed(op, cell) |> LCell |> GeoExp
+                Ok (newCell, Map.ofList [("&!", newCell)] |> AugmentDynamicEnvironment |> Some)
+            | Some x -> Error <| DrawDynamicVarImproperlyBound (x, Some op)
+            | None -> Error <| DrawDynamicVarUnbound (Some op)
+        | _ -> Error <| WrongArgumentsToDraw arguments 
+
     let hidePoints arguments runtime = 
         match arguments with 
         | [Bool b;] -> Ok (Bool b, Map.ofList [(hidePointsVariable, Bool b)] |> AugmentDynamicEnvironment |> Some)
@@ -345,3 +357,4 @@ module PrimitiveProcedures =
         | Fill -> fill 
         | Stroke -> stroke
         | Tessa -> tessa
+        | Perturb -> perturb

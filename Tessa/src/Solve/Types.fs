@@ -59,7 +59,12 @@ module SolveTypes =
             centroid = f polygon.centroid;
             segments = List.map (fun (Straight(p, q)) -> Straight(f p, f q)) polygon.segments}
 
+    let mapPointsPolygonExceptCentroid f polygon = 
+        {polygon with 
+            segments = List.map (fun (Straight(p, q)) -> Straight(f p, f q)) polygon.segments}
+
     let mapPointsPolygons f polygons = List.map (mapPointsPolygon f) polygons
+    let mapPointsPolygonsExceptCentroids f polygons = List.map (mapPointsPolygonExceptCentroid f) polygons
 
     let allPoints polygons = List.collect (fun p -> List.collect (fun (Straight(p, q)) -> [p; q;]) p.segments) polygons
 

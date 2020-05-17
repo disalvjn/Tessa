@@ -1,0 +1,41 @@
+[] 'a 'b 'c = (:isosceles-right);
+a + c @ 1/2 + b @ 7/8 is 'x;
+
+<!> '(
+  a + b + c + a !;
+  a + c @ 1/2 + (b + c @ 5/6) !;
+  a + c @ 1/2 + (b + a @ 5/6) !;
+  a + b @ 3/5 + x + (b + c @ 2/5) !;
+  b + x !;
+  a + b @ 3/5 + (a + c @ 1/4)!;
+  b + c @ 2/5 + (a + c @ 3/4) !;
+  a + c :mirror;
+  b + c :mirror;
+  a + b :mirror;
+) is 'cell;
+
+<!> cell '(
+  c + (c + b @ 2) :repeat-c4 12;
+) is 'cell12;
+
+<!> cell '(
+  c + (c + b @ 2) :repeat-c4 6;
+) is 'cell6;
+
+<!> cell '(
+  c + (c + b @ 2) :repeat-c4 2;
+) is 'cell2;
+
+:hide-points true;
+
+<#> '(
+  _* ([] 1 2 3 7 5 8) '99c2ff #;
+  _* _ '0047b3 #;
+  
+) is 'effects;
+
+:tessa cell12 effects;
+:tessa cell6 effects;
+:tessa cell2 effects;
+
+

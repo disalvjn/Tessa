@@ -35,6 +35,7 @@ module EvalTypes =
         | DynamicBindDraw
         | DynamicBindColor
         | Mirror
+        | Perturb
         | RepeatC4
         | HidePoints
         | Fill 

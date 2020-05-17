@@ -42,6 +42,7 @@ module Eval =
         ("c4-clockwise", (PrimitiveProcedure C4Clockwise));
         ("eval", (PrimitiveProcedure Eval));
         ("mirror", (PrimitiveProcedure Mirror));
+        ("perturb", (PrimitiveProcedure Perturb));
         ("repeat-c4", (PrimitiveProcedure RepeatC4));
         ("hide-points", (PrimitiveProcedure HidePoints));
         ("true", (Bool true));
