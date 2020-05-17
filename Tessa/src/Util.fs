@@ -164,6 +164,3 @@ module List =
       | x :: ys -> List.map (fun a -> (x, a)) list2 @ cartesianProduct ys list2
    
    let unpack list = List.collect (fun (x, y) -> [x; y]) list
-
-
-// http://matthewmanela.com/blog/functional-stateful-program-in-f/

@@ -75,6 +75,8 @@ module App =
 
             let result = parsed |> fromResult |> fst |> E.eval
 
+            writeError result.error
+
             let cells = 
                 Map.mapList (fun k v -> E.asCell v) result.runtime.environment 
                 |> okays 
@@ -101,7 +103,7 @@ module App =
             | Ok draws -> 
                 ctx.fillStyle <- !^ "ffffff"
                 ctx.clearRect(0.0, 0.0, maxX, maxY)
-                ctx.globalCompositeOperation <- "screen"
+                ctx.globalCompositeOperation <- "multiply"
                 List.iter (draw ctx {drawPoints = not hidePoints; fillPolygons = false;}) <| List.concat draws
             | Error e -> ()
 

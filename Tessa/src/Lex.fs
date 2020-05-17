@@ -41,6 +41,7 @@ module Lex =
         | Identifier of string // abc
         | DynamicIdentifier of string
         | Fraction of numer: int * denom: int // 11/4
+        | String of string
         | PrimitiveProc of PrimitiveProcToken
         | QuotePrimitive // ' -- allows us pass + etc. into function as an argument without trigger stack
         // Primitive Procedures
@@ -65,6 +66,7 @@ module Lex =
         (";", always EndStackOps);
         ("=", always <| PrimitiveProc Assign);
         ("'", always QuotePrimitive);
+        ("\"[a-zA-Z\d\s]+\"", fun (s: string) -> String (s.Substring(1, s.Length - 2)));
         ("\.", always <| PrimitiveProc RecordAccess);
         ("\!", always <| PrimitiveProc Draw);
         ("#=", always <| PrimitiveProc Stroke);

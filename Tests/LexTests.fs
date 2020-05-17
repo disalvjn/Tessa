@@ -40,3 +40,10 @@ module LexTests =
         let expected = [Lex.Identifier("c4-clockwise")] 
         Assert.Equal<Lex.Token list>(expected, lexed)
 
+    [<Fact>]
+    let ``Lex String`` () =
+        let s = "\"0047b3\""
+        let lexed = Lex.lex s |> fromResult |> List.map fst
+        let expected = [Lex.String "0047b3"]
+        Assert.Equal<Lex.Token list>(expected, lexed)
+

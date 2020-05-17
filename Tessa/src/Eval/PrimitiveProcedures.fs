@@ -257,6 +257,7 @@ module PrimitiveProcedures =
     let extractColor = function 
         | Quote(P.Expression(P.Identifier i)) -> Ok i 
         | Quote(P.Expression(P.Number n)) -> Ok <| string (int n)
+        | String s -> Ok <| s
         | x -> Error <| NotASymbol x
 
     let dotoEffectsVar effectFromColor arguments runtime = 

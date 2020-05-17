@@ -35,24 +35,23 @@ module Eval =
     }
 
     let startingEnvironment : Environment= 
-        Map.empty 
-        |> Map.add "plus" (PrimitiveProcedure AddNumber)
-        |> Map.add "square" (PrimitiveProcedure Square)
-        |> Map.add "isosceles-right" (PrimitiveProcedure IsoscelesRight)
-        |> Map.add "c4-clockwise" (PrimitiveProcedure C4Clockwise)
-        |> Map.add "eval" (PrimitiveProcedure Eval)
-        |> Map.add "mirror" (PrimitiveProcedure Mirror)
-        |> Map.add "repeat-c4" (PrimitiveProcedure RepeatC4)
-        |> Map.add "hide-points" (PrimitiveProcedure HidePoints)
-        |> Map.add "true" (Bool true)
-        |> Map.add "false" (Bool false)
-        |> Map.add "_" (Quote(P.Expression(P.Identifier("_"))))
-        |> Map.add "_*" (Quote(P.Expression(P.Identifier("_*"))))
-        |> Map.add "tessa" (PrimitiveProcedure Tessa) 
+        Map.ofList [
+        ("plus", (PrimitiveProcedure AddNumber));
+        ("square", (PrimitiveProcedure Square));
+        ("isosceles-right", (PrimitiveProcedure IsoscelesRight));
+        ("c4-clockwise", (PrimitiveProcedure C4Clockwise));
+        ("eval", (PrimitiveProcedure Eval));
+        ("mirror", (PrimitiveProcedure Mirror));
+        ("repeat-c4", (PrimitiveProcedure RepeatC4));
+        ("hide-points", (PrimitiveProcedure HidePoints));
+        ("true", (Bool true));
+        ("false", (Bool false));
+        ("_", (Quote(P.Expression(P.Identifier("_")))));
+        ("_*", (Quote(P.Expression(P.Identifier("_*")))));
+        ("tessa", (PrimitiveProcedure Tessa));]
 
     let startingDynamicEnvironment: DynamicEnvironment = 
-        Map.empty
-        |> Map.add hidePointsVariable (Bool false)
+        Map.ofList [(hidePointsVariable, (Bool false))]
 
     let emptyRuntime = {
         environment = startingEnvironment;
@@ -126,6 +125,7 @@ module Eval =
         match exp with
         | P.Number n -> Ok <| Number n
         | P.Identifier ident -> findIdentifier context ident 
+        | P.String s -> Ok <| String s
         | P.DynamicIdentifier ident -> findDynamicIdentifier context ident
         | P.PrimitiveProcedure p -> parsePrimitiveToEvalPrimitive p |> PrimitiveProcedure |> Ok
         | P.Quote q -> Ok <| Quote q

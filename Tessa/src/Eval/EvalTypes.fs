@@ -84,6 +84,7 @@ module EvalTypes =
 
     and Exp =
         | Number of float
+        | String of string
         | Identifier of string
         | Bool of bool
         | PrimitiveProcedure of PrimitiveProcedure

@@ -8,6 +8,7 @@ module Parse =
 
     type Word = 
         | Identifier of string
+        | String of string
         | DynamicIdentifier of string
         | Number of float
         | PrimitiveProcedure of Lex.PrimitiveProcToken
@@ -56,6 +57,9 @@ module Parse =
 
         | Lex.Identifier i :: rest -> 
             Ok (Identifier i |> Expression |> Some, rest)
+
+        | Lex.String i :: rest ->
+            Ok (String i |> Expression |> Some, rest)
 
         | Lex.DynamicIdentifier i :: rest ->
             Ok (DynamicIdentifier i |> Expression |> Some, rest)
