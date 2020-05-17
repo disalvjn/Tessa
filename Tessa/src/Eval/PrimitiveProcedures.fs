@@ -217,7 +217,7 @@ module PrimitiveProcedures =
 
     // todo: commonalities between bindDraw and bindColor
 
-    let dynamicBindSpecial sym startVal err eval arguments runtime = 
+    let rec dynamicBindSpecial sym startVal err eval arguments runtime = 
         match arguments with 
         | [Quote(stackCommand)] -> 
             result {
@@ -225,6 +225,8 @@ module PrimitiveProcedures =
                 let valFromRuntime = Map.find sym runtime.dynamicEnvironment
                 return (valFromRuntime, None)
             }
+        | [overrideStartVal; Quote(stackCommand)] ->
+            dynamicBindSpecial sym overrideStartVal err eval [Quote(stackCommand)] runtime
         | _ -> Error <| err arguments
 
     let dynamicBindDraw eval arguments runtime = 
@@ -252,12 +254,17 @@ module PrimitiveProcedures =
         | Array exps -> List.map asNumber exps |> Result.sequence |> Result.map (List.map int >> L.OneOf)
         | _ -> Error <| NotAnIndex exp
 
+    let extractColor = function 
+        | Quote(P.Expression(P.Identifier i)) -> Ok i 
+        | Quote(P.Expression(P.Number n)) -> Ok <| string (int n)
+        | x -> Error <| NotASymbol x
+
     let dotoEffectsVar effectFromColor arguments runtime = 
         let rev = List.rev arguments 
         let (rawColor, rawIndices) = (List.head rev, List.rev <| List.tail rev)
         result {
             let! indices = List.map asIndex rawIndices |> Result.sequence
-            let! color = extractSymbol rawColor
+            let! color = extractColor rawColor
             let asEffect = (indices, effectFromColor color)
             return! 
                 match Map.tryFind "&#" runtime.dynamicEnvironment with 

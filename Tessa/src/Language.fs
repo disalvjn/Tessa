@@ -291,34 +291,3 @@ module Examples =
         let finalUp = b + middleUpVertex
 
         [a + b + c; down1 + down2; upChain; finalUp]
-
-// [] 'a 'b 'c = (:isosceles-right);
-// a + c @ 1/2 + b @ 7/8 is 'x;
-
-// <!> '(
-//   a + b + c + a !;
-//   a + c @ 1/2 + (b + c @ 5/6) !;
-//   a + c @ 1/2 + (b + a @ 5/6) !;
-//   a + b @ 3/5 + x + (b + c @ 2/5) !;
-//   b + x !;
-//   a + b @ 3/5 + (a + c @ 1/4)!;
-//   b + c @ 2/5 + (a + c @ 3/4) !;
-//   a + c :mirror;
-//   b + c :mirror;
-//   a + b :mirror;
-//   c + (c + b @ 2) :repeat-c4 6;
-// ) is 'cell;
-
-// :hide-points true;
-
-// '3939ac is 'primary;
-// 'cce0ff is 'secondary;
-
-// <#> '(
-//   _* ([] 1 2 3 7 5 8) primary #;
-//   _* _ secondary #;
-  
-// ) is 'effects;
-
-// :tessa cell effects;
-

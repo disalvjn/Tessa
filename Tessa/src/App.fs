@@ -72,10 +72,8 @@ module App =
             // printf "%A" lexed 
 
             let parsed = lexed |> fromResult |> List.map fst |> Parse.parseList
-            // printf "%A" parsed
 
             let result = parsed |> fromResult |> fst |> E.eval
-            Option.iter writeError result.error
 
             let cells = 
                 Map.mapList (fun k v -> E.asCell v) result.runtime.environment 
@@ -94,35 +92,16 @@ module App =
                 Map.tryFind E.hidePointsVariable result.runtime.dynamicEnvironment 
                 |> Option.cata (function | E.Bool b -> b | _ -> false) false
 
-            writeError tessellations
-            // writeError (tessellations, labels)
-
-            // printf "%A" result
-
-            // let (a, b, c, d) = (L.Absolute(0.0, 0.0), L.Absolute(1.0, 0.0), L.Absolute(1.0, 1.0), L.Absolute (0.0, 1.0))
-            // let c2 = L.(@) (L.linkpp c d) 2.0
-            // let labels = Map.ofList [("a", a); ("b", b); ("c", c); ("d", d); ("c2", c2)]
-            // let border = [a |> L.linkpp b |> L.linksp c |> L.linksp d |> L.linksp a] // |> L.linksp a]
-            // let halfwayAB = L.(@) (L.linkpp a b) 0.5
-            // let halfwayCD = L.(@) (L.linkpp c d) 0.5
-            // // writeError border
-            // let cell = L.Primary <| border  @ [L.linkpp a c] @ [L.linkpp b d]
-            // let mirrored1 = L.Transformed (L.MirrorOver (L.ExtendSegment <| L.linkpp b c), cell)
-            // let mirrored2 = L.Transformed (L.MirrorOver (L.ExtendSegment <| L.linkpp d c), mirrored1)
-            // let repeated = L.Transformed (L.Repeat(L.linkpp d c2, L.C4, 3), mirrored2)
-            // let tessellation = L.Tessellation(repeated, [
-            //     ([L.Any; L.Any; L.Ind 0], L.Color("#ccffdd"));
-            //     ([L.Any; L.Any; L.Ind 1], L.Color ("#4dff88"));
-            //     ([L.Any; L.Any; L.Ind 2], L.Color ("#009933"));
-            //     ([L.Any; L.Any; L.Ind 3], L.Color ("#003311"))])
-
-            let targets = {V.boundingHeight = 1950.0; V.boundingWidth = 1950.0; V.topLeft = (25.0, 25.0); V.xMax = 2000.0; V.yMax = 2000.0;}
+            let maxX = 2000.0
+            let maxY = 2000.0
+            let targets = {V.boundingHeight = 1950.0; V.boundingWidth = 1950.0; V.topLeft = (25.0, 25.0); V.xMax = maxX; V.yMax = maxY}
             let drawable = List.map (fun tessellation -> V.solveTessellation targets tessellation labels) tessellations  |> Result.sequence
-            writeError drawable
+
             match drawable with
             | Ok draws -> 
                 ctx.fillStyle <- !^ "ffffff"
-                ctx.clearRect(0.0, 0.0, 1000.0, 1000.0)
+                ctx.clearRect(0.0, 0.0, maxX, maxY)
+                ctx.globalCompositeOperation <- "screen"
                 List.iter (draw ctx {drawPoints = not hidePoints; fillPolygons = false;}) <| List.concat draws
             | Error e -> ()
 
