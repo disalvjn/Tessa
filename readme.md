@@ -7,7 +7,8 @@ See the Examples directory:
 
 The Tessa interpreter is written in F# with the Fable compiler (F# -> JS). An interactive interpreter runs in the browser.
 Example of use: [demo-roses-4.png](Examples/demo-roses-4.png). Also see the rest of that series for an example of
-how the tessellation is built up iteratively throughout the script.
+how the tessellation is built up iteratively throughout the script. When you view these, open the image in a new tab so you don't
+have to scroll side-to-side.
 
 To learn more about tessellations, check out *Designing Tessellations : The Secrets of Interlocking Patterns* by Jinny Beyer.
 
