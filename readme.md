@@ -3,7 +3,7 @@ Tessa is a minimalist stack-based programming language that creates tessellation
 
 See the Examples directory: 
 - [roses.tessa](Examples/roses.tessa) is the script that produces [roses.png](Examples/roses.png)
-- [ocean-bottom.tessa](Examples/ocean-bottom.tessa) is the script that produces [ocean-bottom.png](Examples/ocean-bottom.png)
+- [ocean-sparkle.tessa](Examples/ocean-sparkle.tessa) is the script that produces [ocean-sparkle.png](Examples/ocean-sparkle.png)
 
 The Tessa interpreter is written in F# with the Fable compiler (F# -> JS). An interactive interpreter runs in the browser.
 Example of use: [demo-roses-4.png](Examples/demo-roses-4.png). Also see the rest of that series for an example of
