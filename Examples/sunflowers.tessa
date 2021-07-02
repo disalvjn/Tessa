@@ -1,0 +1,54 @@
+[] 'a 'b 'c = (:isosceles-right);
+
+a + c @ 1/2 + b @ 1/2 is 'mid;
+b + a @ 2/12 is 'ba14;
+b + c @ 2/12 is 'bc14;
+b + c |- 1/24 (a + c) @ 5/12 is 'h1c;
+b + c |- 11/24 (a + c) * (a + c @ 1/2 + h1c) is 'h1cinv;
+
+b + a |- 1/24 (a + c) @ 5/12 is 'h2c;
+b + a |- 11/24 (a + c) * (a + c @ 1/2 + h2c) is 'h2cinv;
+(ba14 + h2c) * (bc14 + h1c) is 'h1x;
+
+
+a + b @ 4/12 is 'i1c;
+a + c @ 3/12 is 'i2c;
+i1c + i2c |- 1/2 (b + c) @ 1/12 is 'icrux;
+
+:hide-points true;
+
+<!> '(
+  a + b + c + a !;
+  ba14 + h1x + bc14 + h2c + (a + c @ 1/2)
+    + h1c + ba14 !;
+  i1c + h1c + h1cinv
+    + i2c + icrux + i1c !;
+  ba14 + h1cinv !;
+
+  h2cinv + h2c + c + h2cinv !;
+
+  a + c :mirror;
+  b + c :mirror;
+  a + b :mirror;
+) is 'icell;
+
+<!> icell '(
+  c + (c + b @ 2) :repeat-c4 4;
+) is 'cell-a;
+
+<!> icell '(
+  c + (c + b @ 2) :repeat-c4 6;
+) is 'cell-b;
+
+<#> '(
+  _* 0 "9bf6c0" #;
+  _* 1 "f6fd90" #;
+  _* ([] 2 4) "1e6a68" #;
+  _* ([] 3 5) "f9ffaf" #;
+  _* 6 "76ad8f" #;
+  _* 7 "ffd700" #;
+  _* _ "177A0B" #;
+) is 'effects-1;
+
+:tessa cell-a effects-1;
+:tessa cell-b effects-1;
